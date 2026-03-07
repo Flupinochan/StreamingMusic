@@ -36,7 +36,6 @@ export class MusicDataRepositoryAmplify {
       method: 'PUT',
       body: input.binary.data,
       headers: {
-        'Content-Type': input.binary.contentType,
         'Cache-Control': 'public, max-age=31536000, immutable',
       },
     })

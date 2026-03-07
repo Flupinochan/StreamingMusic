@@ -28,9 +28,11 @@ export const handler = async (
 
   logger.info("Generating S3 presigned URL", { key });
 
+  // presigned URL生成時のheaderとアップロード時のheaderは一致させる必要がある
   const command = new PutObjectCommand({
     Bucket: BUCKET_NAME,
     Key: key,
+    CacheControl: "public, max-age=31536000, immutable",
   });
   const url = await getSignedUrl(s3Client, command, { expiresIn: 300 });
 

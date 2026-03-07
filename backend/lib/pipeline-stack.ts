@@ -76,7 +76,7 @@ export class PipelineStack extends cdk.Stack {
               // prepare ffmpeg layer binary (download from release)
               "mkdir -p backend/lib/lambda/ffmpeg-layer/bin",
               "curl -L -o ffmpeg.tar.xz https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz",
-              "tar -xJf ffmpeg.tar.xz --strip-components=1 -C backend/lib/lambda/ffmpeg-layer/bin 'ffmpeg-master-latest-linux64-gpl/ffmpeg'",
+              "tar -xJf ffmpeg.tar.xz -C backend/lib/lambda/ffmpeg-layer/bin --strip-components=2 --wildcards '*bin/ffmpeg'",
               "chmod +x backend/lib/lambda/ffmpeg-layer/bin/ffmpeg",
             ],
           },

@@ -28,6 +28,20 @@ export class HostingStack extends cdk.Stack {
       enforceSSL: true,
       versioned: false,
       removalPolicy: RemovalPolicy.DESTROY,
+      cors: [
+        {
+          allowedOrigins: [`https://${props.domainName}`],
+          allowedMethods: [
+            s3.HttpMethods.GET,
+            s3.HttpMethods.HEAD,
+            s3.HttpMethods.PUT,
+            s3.HttpMethods.POST,
+            s3.HttpMethods.DELETE,
+          ],
+          allowedHeaders: ["*"],
+          maxAge: 3000,
+        },
+      ],
     });
 
     const certificateArn = ssm.StringParameter.fromStringParameterAttributes(
