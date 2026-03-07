@@ -6,9 +6,15 @@ import { Construct } from "constructs";
 import * as path from "path";
 import { AuthStack } from "./auth-stack";
 import { DbStack } from "./db-stack";
+import { DeleteObjectsStack } from "./lambda/deleteObjects-stack";
+import { GenerateUrlStack } from "./lambda/generateUrl-stack";
+import { ProcessMusicStack } from "./lambda/processMusic-stack";
 
 interface ApiStackProps extends cdk.StackProps {
   authStack: AuthStack;
+  lambdaStack: GenerateUrlStack;
+  deleteObjectsStack: DeleteObjectsStack;
+  processMusicStack: ProcessMusicStack;
   dbStack: DbStack;
 }
 
@@ -16,6 +22,7 @@ export class ApiStack extends cdk.Stack {
   public readonly apiLogGroup: logs.LogGroup;
   public readonly apiLogRole: iam.Role;
   public readonly api: appsync.GraphqlApi;
+  public readonly lambdaDataSource: appsync.LambdaDataSource;
   public readonly datasource: appsync.DynamoDbDataSource;
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
@@ -78,6 +85,46 @@ export class ApiStack extends cdk.Stack {
       ],
     });
 
+    // ---Lambda DataSource for presigned url ---
+    this.lambdaDataSource = this.api.addLambdaDataSource(
+      "LambdaDataSource",
+      props.lambdaStack.generateS3PresignedUrlFunction,
+    );
+
+    this.lambdaDataSource.createResolver("GenerateS3PresignedUrlResolver", {
+      typeName: "Query",
+      fieldName: "generateS3PresignedUrl",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+
+    // ---Lambda DataSource for delete objects ---
+    const deleteDataSource = this.api.addLambdaDataSource(
+      "DeleteObjectsDataSource",
+      props.deleteObjectsStack.deleteObjectsFunction,
+    );
+
+    deleteDataSource.createResolver("DeleteS3FolderResolver", {
+      typeName: "Mutation",
+      fieldName: "deleteS3Folder",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+
+    // ---Lambda DataSource for processing music ---
+    const processDataSource = this.api.addLambdaDataSource(
+      "ProcessMusicDataSource",
+      props.processMusicStack.processMusicFunction,
+    );
+
+    processDataSource.createResolver("ProcessMusicResolver", {
+      typeName: "Mutation",
+      fieldName: "processMusic",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+
+    // --- DynamoDB DataSource ---
     this.datasource = this.api.addDynamoDbDataSource(
       "DynamoDbDataSource",
       props.dbStack.musicMetadataTable,

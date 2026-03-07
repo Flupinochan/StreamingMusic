@@ -15,7 +15,11 @@ export class MusicDataRepositoryImpl implements MusicDataRepository {
 
   async upload(path: MusicPath, binary: MusicBinaryObject): Promise<void> {
     const dto: UploadRequestDto = createUploadMusicDto(path, binary)
-    await this.repo.uploadMusicData(dto)
+    await this.repo.upload(dto)
+  }
+
+  async process(path: MusicPath): Promise<string> {
+    return this.repo.process(path.value)
   }
 
   async remove(path: MusicFolderPath): Promise<void> {

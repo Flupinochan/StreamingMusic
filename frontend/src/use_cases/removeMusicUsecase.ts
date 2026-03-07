@@ -11,7 +11,8 @@ export class RemoveMusicUsecase {
 
   async removeMusic(input: RemoveMusicDto): Promise<void> {
     const { id, path } = removeMusicDtoToRemoveMusicInput(input)
-    this.musicDataRepository.remove(path)
-    this.musicMetadataRepository.removeMusicMetadata(id)
+    // ensure the data files are deleted before deleting metadata
+    await this.musicDataRepository.remove(path)
+    await this.musicMetadataRepository.removeMusicMetadata(id)
   }
 }

@@ -28,6 +28,24 @@ export type DeleteMusicMetadataInput = {
   id: Scalars['ID']['input'];
 };
 
+export type DeleteS3FolderInput = {
+  prefix: Scalars['String']['input'];
+};
+
+export type DeleteS3FolderOutput = {
+  __typename?: 'DeleteS3FolderOutput';
+  deletedCount: Scalars['Int']['output'];
+};
+
+export type GenerateS3PresignedUrlInput = {
+  key: Scalars['String']['input'];
+};
+
+export type GenerateS3PresignedUrlOutput = {
+  __typename?: 'GenerateS3PresignedUrlOutput';
+  url: Scalars['String']['output'];
+};
+
 export type MusicMetadata = {
   __typename?: 'MusicMetadata';
   artworkImagePath: Scalars['String']['output'];
@@ -42,6 +60,8 @@ export type MusicMetadata = {
 export type Mutation = {
   __typename?: 'Mutation';
   createMusicMetadata?: Maybe<MusicMetadata>;
+  deleteS3Folder?: Maybe<DeleteS3FolderOutput>;
+  processMusic?: Maybe<ProcessMusicOutput>;
   removeMusicMetadata?: Maybe<MusicMetadata>;
   updateMusicMetadata?: Maybe<MusicMetadata>;
 };
@@ -49,6 +69,16 @@ export type Mutation = {
 
 export type MutationCreateMusicMetadataArgs = {
   input: CreateMusicMetadataInput;
+};
+
+
+export type MutationDeleteS3FolderArgs = {
+  input: DeleteS3FolderInput;
+};
+
+
+export type MutationProcessMusicArgs = {
+  input: ProcessMusicInput;
 };
 
 
@@ -61,9 +91,24 @@ export type MutationUpdateMusicMetadataArgs = {
   input: UpdateMusicMetadataInput;
 };
 
+export type ProcessMusicInput = {
+  key: Scalars['String']['input'];
+};
+
+export type ProcessMusicOutput = {
+  __typename?: 'ProcessMusicOutput';
+  manifestPath: Scalars['String']['output'];
+};
+
 export type Query = {
   __typename?: 'Query';
+  generateS3PresignedUrl?: Maybe<GenerateS3PresignedUrlOutput>;
   listMusicMetadata: Array<MusicMetadata>;
+};
+
+
+export type QueryGenerateS3PresignedUrlArgs = {
+  input: GenerateS3PresignedUrlInput;
 };
 
 export type Subscription = {

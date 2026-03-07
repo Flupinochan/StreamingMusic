@@ -35,6 +35,8 @@ export class AuthStack extends cdk.Stack {
     this.webClient = this.userPool.addClient("webclient", {
       userPoolClientName: `${stackName}-webclient`,
       authFlows: {
+        adminUserPassword: true,
+        userPassword: true,
         userSrp: true,
       },
       generateSecret: false,

@@ -1,66 +1,95 @@
 import type { UploadRequestDto } from '@/infrastructure/repositories/dto/uploadRequestDto'
-import {
-  DeleteObjectsCommand,
-  paginateListObjectsV2,
-  PutObjectCommand,
-  S3Client,
-} from '@aws-sdk/client-s3'
-import { fetchAuthSession } from 'aws-amplify/auth'
+import { generateClient, type GraphQLResult } from 'aws-amplify/api'
 
-const BUCKET_NAME = 'streamingmusichostingstack-bucket'
-
-async function getS3Client(): Promise<S3Client> {
-  const session = await fetchAuthSession()
-  return new S3Client({
-    region: 'ap-northeast-1',
-    credentials: session.credentials,
-  })
-}
+const client = generateClient()
 
 export class MusicDataRepositoryAmplify {
-  async uploadMusicData(input: UploadRequestDto): Promise<void> {
-    const client = await getS3Client()
-    const command = new PutObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: input.pathS3,
-      Body: input.binary.data,
-      ContentType: input.binary.contentType,
-      CacheControl: 'public, max-age=31536000, immutable',
+  async getUrl(path: string): Promise<string> {
+    const query = /* GraphQL */ `
+      query GenerateS3PresignedUrl($input: GenerateS3PresignedUrlInput!) {
+        generateS3PresignedUrl(input: $input) {
+          url
+        }
+      }
+    `
+
+    const response = (await client.graphql<{
+      generateS3PresignedUrl: { url: string }
+    }>({
+      query,
+      variables: { input: { key: path } },
+      authMode: 'userPool',
+    })) as GraphQLResult<{ generateS3PresignedUrl: { url: string } }>
+
+    const url = response.data?.generateS3PresignedUrl?.url
+    if (!url) {
+      throw new Error(`failed to generate presigned url for key: ${path}`)
+    }
+
+    return url
+  }
+
+  async upload(input: UploadRequestDto): Promise<void> {
+    const url = await this.getUrl(input.pathS3)
+
+    const response = await fetch(url, {
+      method: 'PUT',
+      body: input.binary.data,
+      headers: {
+        'Content-Type': input.binary.contentType,
+        'Cache-Control': 'public, max-age=31536000, immutable',
+      },
     })
-    await client.send(command)
+
+    if (!response.ok) {
+      throw new Error(`failed to upload object to presigned url (status ${response.status})`)
+    }
   }
 
   async remove(prefix: string): Promise<void> {
-    // フォルダパスをベースにListしフォルダ内の全ファイル(audio, manifest等)を削除
+    const mutation = /* GraphQL */ `
+      mutation DeleteS3Folder($input: DeleteS3FolderInput!) {
+        deleteS3Folder(input: $input) {
+          deletedCount
+        }
+      }
+    `
 
-    const client = await getS3Client()
+    const response = (await client.graphql<{
+      deleteS3Folder: { deletedCount: number }
+    }>({
+      query: mutation,
+      variables: { input: { prefix } },
+      authMode: 'userPool',
+    })) as GraphQLResult<{ deleteS3Folder: { deletedCount: number } }>
 
-    // List
-    const objectKeys: string[] = []
-    const paginator = paginateListObjectsV2(
-      { client, pageSize: 1000 },
-      { Bucket: BUCKET_NAME, Prefix: prefix },
-    )
-    for await (const page of paginator) {
-      if (page.Contents) objectKeys.push(...page.Contents.map((obj) => obj.Key!))
+    const count = response.data?.deleteS3Folder?.deletedCount
+    if (count === undefined) {
+      throw new Error(`failed to delete objects for prefix: ${prefix}`)
     }
+  }
 
-    if (objectKeys.length === 0) return
+  async process(key: string): Promise<string> {
+    const mutation = /* GraphQL */ `
+      mutation ProcessMusic($input: ProcessMusicInput!) {
+        processMusic(input: $input) {
+          manifestPath
+        }
+      }
+    `
 
-    // Delete
-    const chunks: string[][] = []
-    for (let i = 0; i < objectKeys.length; i += 1000) {
-      chunks.push(objectKeys.slice(i, i + 1000))
+    const response = (await client.graphql<{
+      processMusic: { manifestPath: string }
+    }>({
+      query: mutation,
+      variables: { input: { key } },
+      authMode: 'userPool',
+    })) as GraphQLResult<{ processMusic: { manifestPath: string } }>
+
+    const path = response.data?.processMusic?.manifestPath
+    if (!path) {
+      throw new Error(`failed to process music file: ${key}`)
     }
-    await Promise.all(
-      chunks.map((chunk) =>
-        client.send(
-          new DeleteObjectsCommand({
-            Bucket: BUCKET_NAME,
-            Delete: { Objects: chunk.map((key) => ({ Key: key })) },
-          }),
-        ),
-      ),
-    )
+    return path
   }
 }

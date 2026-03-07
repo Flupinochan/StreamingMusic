@@ -1,7 +1,12 @@
-import type { MusicDataRepository } from "@/domain/repositories/musicDataRepository";
-import type { MusicMetadataRepository } from "@/domain/repositories/musicMetadataRepository";
-import type { CreateMusicDto } from "@/use_cases/createMusicDto";
-import { createMusicDtoToCreateMusicInput } from "./createMusicMapper";
+import { MusicMetadata } from '@/domain/entities/musicMetadata'
+import type { MusicDataRepository } from '@/domain/repositories/musicDataRepository'
+import type { MusicMetadataRepository } from '@/domain/repositories/musicMetadataRepository'
+import { MusicSeconds } from '@/domain/value_objects/musicSeconds'
+import { MusicSize } from '@/domain/value_objects/musicSize'
+import { MusicTitle } from '@/domain/value_objects/musicTitle'
+import { ManifestPath } from '@/domain/value_objects/path/manifestPath'
+import type { CreateMusicDto } from '@/use_cases/createMusicDto'
+import { createMusicDtoToCreateMusicInput } from './createMusicMapper'
 
 export class CreateMusicUsecase {
   constructor(
@@ -15,25 +20,33 @@ export class CreateMusicUsecase {
       artworkImagePath,
       artworkThumbnailImage,
       artworkThumbnailImagePath,
-      manifest,
-      manifestPath,
-      segments,
-      musicMetadata,
-    } = await createMusicDtoToCreateMusicInput(input);
+      musicFile,
+      musicPath,
+      title,
+      seconds,
+      size,
+    } = await createMusicDtoToCreateMusicInput(input)
 
-    const uploadPromises: Promise<void>[] = [
+    // upload artwork and raw music file
+    await Promise.all([
       this.musicDataRepository.upload(artworkImagePath, artworkImage),
-      this.musicDataRepository.upload(
-        artworkThumbnailImagePath,
-        artworkThumbnailImage,
-      ),
-      this.musicDataRepository.upload(manifestPath, manifest),
-      ...segments.map((seg) =>
-        this.musicDataRepository.upload(seg.path, seg.musicData),
-      ),
-      this.musicMetadataRepository.createMusicMetadata(musicMetadata),
-    ];
+      this.musicDataRepository.upload(artworkThumbnailImagePath, artworkThumbnailImage),
+      this.musicDataRepository.upload(musicPath, musicFile),
+    ])
 
-    await Promise.all(uploadPromises);
+    // ask server to process the raw file and produce manifest
+    const manifestPath = await this.musicDataRepository.process(musicPath)
+
+    // build metadata with returned manifest path
+    const musicMetadata = MusicMetadata.create(
+      MusicTitle.create(title),
+      MusicSeconds.create(seconds),
+      MusicSize.create(size),
+      ManifestPath.createFromPath(manifestPath),
+      artworkImagePath,
+      artworkThumbnailImagePath,
+    )
+
+    await this.musicMetadataRepository.createMusicMetadata(musicMetadata)
   }
 }

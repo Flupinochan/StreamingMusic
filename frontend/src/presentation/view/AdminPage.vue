@@ -26,9 +26,7 @@
     <v-row>
       <v-col cols="12" md="6">
         <v-btn
-          :disabled="
-            !selectedMusicFile || !selectedArtworkFile || musicStore.loading
-          "
+          :disabled="!selectedMusicFile || !selectedArtworkFile || musicStore.loading"
           :loading="musicStore.loading"
           aria-label="音楽ファイルをアップロード"
           @click="handleUpload"
@@ -38,9 +36,7 @@
       </v-col>
       <v-col cols="12" md="6">
         <v-btn
-          :disabled="
-            !musicPlayerStore.playerState.musicId || musicStore.loading
-          "
+          :disabled="!musicPlayerStore.playerState.musicId || musicStore.loading"
           :loading="musicStore.loading"
           aria-label="音楽ファイルを削除"
           @click="handleDelete"
@@ -53,167 +49,157 @@
 </template>
 
 <script setup lang="ts">
-import { useMusicStore } from "@/presentation/stores/useMusicStore";
-import { segmentAudioFile } from "@/presentation/utils/ffmpegHelpers";
-import MusicListPlayer from "@/presentation/view/components/MusicListPlayer.vue";
-import { getCurrentUser } from "aws-amplify/auth";
-import { onBeforeUnmount, onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
-import { useMusicPlayerStore } from "../stores/useMusicPlayerStore";
+import { useMusicStore } from '@/presentation/stores/useMusicStore'
+import MusicListPlayer from '@/presentation/view/components/MusicListPlayer.vue'
+import { getCurrentUser } from 'aws-amplify/auth'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useMusicPlayerStore } from '../stores/useMusicPlayerStore'
 
-const musicStore = useMusicStore();
-const musicPlayerStore = useMusicPlayerStore();
+const musicStore = useMusicStore()
+const musicPlayerStore = useMusicPlayerStore()
 
-const selectedMusicFile = ref<File | null>(null);
-const selectedMusicTitle = ref<string | null>(null);
-const selectedMusicBytes = ref<number | null>(null);
-const selectedArtworkFile = ref<File | null>(null);
-const selectedMusicDurationSeconds = ref<number | null>(null);
+const selectedMusicFile = ref<File | null>(null)
+const selectedMusicTitle = ref<string | null>(null)
+const selectedMusicBytes = ref<number | null>(null)
+const selectedArtworkFile = ref<File | null>(null)
+const selectedMusicDurationSeconds = ref<number | null>(null)
 
 const getAudioDurationSeconds = (file: File): Promise<number> =>
   new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const audio = new Audio();
-    audio.preload = "metadata";
+    const url = URL.createObjectURL(file)
+    const audio = new Audio()
+    audio.preload = 'metadata'
 
     audio.onloadedmetadata = (): void => {
-      const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
-      URL.revokeObjectURL(url);
-      resolve(Math.round(duration));
-    };
+      const duration = Number.isFinite(audio.duration) ? audio.duration : 0
+      URL.revokeObjectURL(url)
+      resolve(Math.round(duration))
+    }
 
     audio.onerror = (): void => {
-      URL.revokeObjectURL(url);
-      reject(new Error("failed to load audio metadata"));
-    };
+      URL.revokeObjectURL(url)
+      reject(new Error('failed to load audio metadata'))
+    }
 
-    audio.src = url;
-  });
+    audio.src = url
+  })
 
 const onFileSelected = async (event: Event): Promise<void> => {
-  const input = event.target as HTMLInputElement;
-  if (!input.files?.length) return;
-  const file = input.files[0];
-  selectedMusicFile.value = file;
+  const input = event.target as HTMLInputElement
+  if (!input.files?.length) return
+  const file = input.files[0]
+  selectedMusicFile.value = file
   // store title (filename without extension) and size
-  const idx = file.name.lastIndexOf(".");
-  selectedMusicTitle.value = idx > 0 ? file.name.slice(0, idx) : file.name;
-  selectedMusicBytes.value = file.size;
+  const idx = file.name.lastIndexOf('.')
+  selectedMusicTitle.value = idx > 0 ? file.name.slice(0, idx) : file.name
+  selectedMusicBytes.value = file.size
 
-  selectedMusicDurationSeconds.value = null;
+  selectedMusicDurationSeconds.value = null
   try {
-    selectedMusicDurationSeconds.value = await getAudioDurationSeconds(
-      selectedMusicFile.value,
-    );
+    selectedMusicDurationSeconds.value = await getAudioDurationSeconds(selectedMusicFile.value)
   } catch (error) {
-    console.warn("duration calc error", error);
+    console.warn('duration calc error', error)
   }
-};
+}
 
 const onArtworkSelected = (event: Event): void => {
-  const input = event.target as HTMLInputElement;
-  if (!input.files?.length) return;
-  selectedArtworkFile.value = input.files[0];
-};
+  const input = event.target as HTMLInputElement
+  if (!input.files?.length) return
+  selectedArtworkFile.value = input.files[0]
+}
 
 const handleUpload = async (): Promise<void> => {
-  if (!selectedMusicFile.value) return;
-  if (!selectedArtworkFile.value) return;
+  if (!selectedMusicFile.value) return
+  if (!selectedArtworkFile.value) return
   try {
-    const thumbnailBlob = await createThumbnail(selectedArtworkFile.value);
+    const thumbnailBlob = await createThumbnail(selectedArtworkFile.value)
 
-    // HLS分割を実行
-    const { manifestFile, segmentFiles: segments } = await segmentAudioFile(
-      selectedMusicFile.value,
-    );
-
+    // upload DTO with raw music file
     await musicStore.uploadMusic({
-      musicTitle: selectedMusicTitle.value ?? "",
+      musicTitle: selectedMusicTitle.value ?? '',
       musicDataBytes: selectedMusicBytes.value ?? 0,
       musicDurationSeconds: selectedMusicDurationSeconds.value ?? 0,
       artworkImageFile: selectedArtworkFile.value,
       artworkThumbnailImageBlob: thumbnailBlob,
-      manifestFile: manifestFile,
-      segmentFiles: segments,
-    });
+      musicFile: selectedMusicFile.value!,
+    })
 
-    await musicStore.listMusic();
+    await musicStore.listMusic()
   } catch (error) {
-    console.error("upload error", error);
+    console.error('upload error', error)
   }
-};
+}
 
 const handleDelete = async (): Promise<void> => {
-  if (!musicPlayerStore.playerState.musicId) return;
+  if (!musicPlayerStore.playerState.musicId) return
 
-  const music = musicPlayerStore.getTrackById(
-    musicPlayerStore.playerState.musicId,
-  );
-  if (!music) return;
+  const music = musicPlayerStore.getTrackById(musicPlayerStore.playerState.musicId)
+  if (!music) return
 
   await musicStore.removeMusic({
     musicId: music?.musicId,
     manifestPath: music?.manifestPath,
-  });
+  })
 
-  await musicStore.listMusic();
-};
+  await musicStore.listMusic()
+}
 
 async function createThumbnail(file: File, maxSize = 300): Promise<Blob> {
-  const img = new Image();
-  const reader = new FileReader();
+  const img = new Image()
+  const reader = new FileReader()
 
   return new Promise((resolve, reject) => {
     reader.onload = (): void => {
-      img.src = reader.result as string;
-    };
+      img.src = reader.result as string
+    }
 
     img.onload = (): void => {
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return reject();
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return reject()
 
-      const scale = Math.min(maxSize / img.width, maxSize / img.height);
-      canvas.width = img.width * scale;
-      canvas.height = img.height * scale;
+      const scale = Math.min(maxSize / img.width, maxSize / img.height)
+      canvas.width = img.width * scale
+      canvas.height = img.height * scale
 
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
 
       canvas.toBlob(
         (blob) => {
-          if (!blob) return reject();
-          resolve(blob);
+          if (!blob) return reject()
+          resolve(blob)
         },
-        "image/jpeg",
+        'image/jpeg',
         0.8,
-      );
-    };
+      )
+    }
 
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
 }
 
-const router = useRouter();
+const router = useRouter()
 const handleKeydown = (e: KeyboardEvent): void => {
-  if (e.ctrlKey && e.altKey && e.shiftKey && e.key.toLowerCase() === "a") {
-    router.push({ path: "home" });
+  if (e.ctrlKey && e.altKey && e.shiftKey && e.key.toLowerCase() === 'a') {
+    router.push({ path: 'home' })
   }
-};
+}
 
 onMounted(async () => {
-  window.addEventListener("keydown", handleKeydown);
+  window.addEventListener('keydown', handleKeydown)
 
   try {
-    await getCurrentUser();
+    await getCurrentUser()
   } catch {
-    router.push({ name: "auth", query: { redirect: "/admin" } });
+    router.push({ name: 'auth', query: { redirect: '/admin' } })
   }
-});
+})
 
 onBeforeUnmount(() => {
-  window.removeEventListener("keydown", handleKeydown);
-});
+  window.removeEventListener('keydown', handleKeydown)
+})
 </script>
 
 <style scoped></style>

@@ -11,6 +11,9 @@ import {
   ProdSsmParamGithub,
 } from "../lib/env/prod";
 import { HostingStack } from "../lib/hosting-stack";
+import { DeleteObjectsStack } from "../lib/lambda/deleteObjects-stack";
+import { GenerateUrlStack } from "../lib/lambda/generateUrl-stack";
+import { ProcessMusicStack } from "../lib/lambda/processMusic-stack";
 import { PipelineStack } from "../lib/pipeline-stack";
 
 const baseName = "StreamingMusic";
@@ -34,7 +37,30 @@ const authStack = new AuthStack(app, `${baseName}AuthStack`, {
 
 const dbStack = new DbStack(app, `${baseName}DbStack`, {});
 
+const generateUrlStack = new GenerateUrlStack(app, `${baseName}LambdaStack`, {
+  hostingStack: hostingStack,
+});
+
+const deleteObjectsStack = new DeleteObjectsStack(
+  app,
+  `${baseName}DeleteObjectsStack`,
+  {
+    hostingStack: hostingStack,
+  },
+);
+
+const processMusicStack = new ProcessMusicStack(
+  app,
+  `${baseName}ProcessMusicStack`,
+  {
+    hostingStack: hostingStack,
+  },
+);
+
 new ApiStack(app, `${baseName}ApiStack`, {
   authStack: authStack,
+  lambdaStack: generateUrlStack,
+  deleteObjectsStack: deleteObjectsStack,
+  processMusicStack: processMusicStack,
   dbStack: dbStack,
 });
