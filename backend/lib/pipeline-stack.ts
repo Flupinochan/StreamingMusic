@@ -17,6 +17,11 @@ interface PipelineStackProps extends cdk.StackProps {
 }
 
 export class PipelineStack extends cdk.Stack {
+  public readonly codeBuildLogGroup: logs.LogGroup;
+  public readonly artifactBucket: s3.Bucket;
+  public readonly codebuild: codebuild.PipelineProject;
+  public readonly pipeline: codepipeline.Pipeline;
+
   constructor(scope: Construct, id: string, props: PipelineStackProps) {
     super(scope, id, props);
 
@@ -30,13 +35,13 @@ export class PipelineStack extends cdk.Stack {
       },
     ).stringValue;
 
-    const codeBuildLogGroup = new logs.LogGroup(this, "CodeBuildLogGroup", {
+    this.codeBuildLogGroup = new logs.LogGroup(this, "CodeBuildLogGroup", {
       logGroupName: `/aws/codebuild/${stackName}-codebuild`,
       retention: logs.RetentionDays.ONE_DAY,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    const artifactBucket = new s3.Bucket(this, "ArtifactBucket", {
+    this.artifactBucket = new s3.Bucket(this, "ArtifactBucket", {
       bucketName: `${stackName}-artifact-bucket`,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
@@ -47,7 +52,7 @@ export class PipelineStack extends cdk.Stack {
       ],
     });
 
-    const buildProject = new codebuild.PipelineProject(this, "BuildProject", {
+    this.codebuild = new codebuild.PipelineProject(this, "BuildProject", {
       projectName: `${stackName}-build-project`,
       environment: {
         buildImage: codebuild.LinuxBuildImage.STANDARD_7_0,
@@ -55,7 +60,7 @@ export class PipelineStack extends cdk.Stack {
       },
       logging: {
         cloudWatch: {
-          logGroup: codeBuildLogGroup,
+          logGroup: this.codeBuildLogGroup,
         },
       },
       buildSpec: codebuild.BuildSpec.fromObject({
@@ -65,7 +70,12 @@ export class PipelineStack extends cdk.Stack {
             "runtime-versions": {
               nodejs: "24",
             },
-            commands: ["node -v", "npm ci --workspace=frontend"],
+            commands: ["node -v", "npm ci"],
+          },
+          pre_build: {
+            commands: [
+              "npm run cdk --workspace=backend -- deploy --all --parallel --ci --require-approval never",
+            ],
           },
           build: {
             commands: ["npm run build --workspace=frontend"],
@@ -80,8 +90,9 @@ export class PipelineStack extends cdk.Stack {
       }),
     });
 
-    buildProject.addToRolePolicy(
+    this.codebuild.addToRolePolicy(
       new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
         actions: ["s3:*"],
         resources: [
           props.hostingStack.bucket.bucketArn,
@@ -90,8 +101,9 @@ export class PipelineStack extends cdk.Stack {
       }),
     );
 
-    buildProject.addToRolePolicy(
+    this.codebuild.addToRolePolicy(
       new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
         actions: ["cloudfront:CreateInvalidation"],
         resources: [
           `arn:aws:cloudfront::${this.account}:distribution/${props.hostingStack.distribution.distributionId}`,
@@ -99,14 +111,32 @@ export class PipelineStack extends cdk.Stack {
       }),
     );
 
-    const pipeline = new codepipeline.Pipeline(this, "Pipeline", {
+    this.codebuild.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ["sts:AssumeRole"],
+        resources: ["*"],
+        conditions: {
+          "ForAnyValue:StringEquals": {
+            "iam:ResourceTag/aws-cdk:bootstrap-role": [
+              "image-publishing",
+              "file-publishing",
+              "deploy",
+              "lookup",
+            ],
+          },
+        },
+      }),
+    );
+
+    this.pipeline = new codepipeline.Pipeline(this, "Pipeline", {
       pipelineName: `${stackName}-pipeline`,
-      artifactBucket: artifactBucket,
+      artifactBucket: this.artifactBucket,
       crossAccountKeys: false,
     });
 
     const sourceOutput = new codepipeline.Artifact("SourceOutput");
-    pipeline.addStage({
+    this.pipeline.addStage({
       stageName: "Source",
       actions: [
         new codepipeline_actions.CodeStarConnectionsSourceAction({
@@ -120,12 +150,12 @@ export class PipelineStack extends cdk.Stack {
       ],
     });
 
-    pipeline.addStage({
+    this.pipeline.addStage({
       stageName: "Build",
       actions: [
         new codepipeline_actions.CodeBuildAction({
           actionName: "Build_And_Deploy",
-          project: buildProject,
+          project: this.codebuild,
           input: sourceOutput,
           outputs: [new codepipeline.Artifact("BuildOutput")],
         }),

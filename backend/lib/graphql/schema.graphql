@@ -1,0 +1,57 @@
+# データ型
+type MusicMetadata {
+  id: ID!
+  title: String!
+  seconds: Int!
+  size: Int!
+  manifestPath: String!
+  artworkImagePath: String!
+  artworkThumbnailImagePath: String!
+}
+
+# 入力型
+input CreateMusicMetadataInput {
+  id: ID!
+  title: String!
+  seconds: Int!
+  size: Int!
+  manifestPath: String!
+  artworkImagePath: String!
+  artworkThumbnailImagePath: String!
+}
+
+input UpdateMusicMetadataInput {
+  id: ID!
+  title: String
+  seconds: Int
+  size: Int
+  manifestPath: String
+  artworkImagePath: String
+  artworkThumbnailImagePath: String
+}
+
+input DeleteMusicMetadataInput {
+  id: ID!
+}
+
+# Query
+type Query {
+  listMusicMetadata: [MusicMetadata!]!
+}
+
+# Mutation
+type Mutation {
+  createMusicMetadata(input: CreateMusicMetadataInput!): MusicMetadata
+  updateMusicMetadata(input: UpdateMusicMetadataInput!): MusicMetadata
+  removeMusicMetadata(input: DeleteMusicMetadataInput!): MusicMetadata
+}
+
+# Subscription
+type Subscription {
+  onCreateMusicMetadata: MusicMetadata
+    @aws_subscribe(mutations: ["createMusicMetadata"])
+  onUpdateMusicMetadata: MusicMetadata
+    @aws_subscribe(mutations: ["updateMusicMetadata"])
+  onRemoveMusicMetadata: MusicMetadata
+    @aws_subscribe(mutations: ["removeMusicMetadata"])
+}
