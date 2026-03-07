@@ -1,0 +1,12 @@
+# 全クローラを対象に設定
+User-agent: *
+
+# 認証ページと管理ページをクロール禁止
+Disallow: /auth/
+Disallow: /admin/
+
+# その他のページは全てクロール可能
+Allow: /
+
+# sitemap の場所
+Sitemap: https://music.metalmental.net/sitemap.xml

@@ -1,10 +1,62 @@
-<!DOCTYPE html>
-<html lang="">
+<!doctype html>
+<html lang="ja">
   <head>
-    <meta charset="UTF-8">
-    <link rel="icon" href="/favicon.ico">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vite App</title>
+    <link rel="icon" type="image/x-icon" href="/icon-16x16.ico" sizes="16x16" />
+    <link rel="icon" type="image/x-icon" href="/icon-32x32.ico" sizes="32x32" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/png" href="/favicon.png" sizes="192x192" />
+    <link
+      rel="icon"
+      type="image/png"
+      href="/image-512x512.png"
+      sizes="512x512"
+    />
+    <link
+      rel="apple-touch-icon"
+      type="image/png"
+      href="/apple-touch-icon.png"
+      sizes="180x180"
+    />
+    <link rel="mask-icon" href="/favicon.png" color="#FFFFFF" />
+
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="MetalMental Music" />
+    <meta name="apple-mobile-web-app-title" content="MetalMental Music" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="msapplication-TileImage" content="/favicon.png" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="theme-color" content="#2196F3" />
+    <meta name="msapplication-TileColor" content="#2196F3" />
+
+    <title>MetalMental Music</title>
+
+    <!-- https://developers.google.com/search/docs/appearance/structured-data/organization?hl=ja -->
+    <script type="application/ld+json">
+      [
+        {
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          "url": "https://www.metalmental.net/",
+          "sameAs": [
+            "https://zenn.dev/metalmental",
+            "https://github.com/Flupinochan/",
+            "https://www.youtube.com/@Flupinochan"
+          ],
+          "logo": "https://www.metalmental.net/image-512x512.png",
+          "name": "MetalMental",
+          "description": "MetalMental is a Full-Stack and SRE Engineer.",
+          "email": "flupino@metalmental.net"
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          "name": "MetalMental Music",
+          "description": "A music platform curated by MetalMental.",
+          "url": "https://music.metalmental.net/"
+        }
+      ]
+    </script>
   </head>
   <body>
     <div id="app"></div>

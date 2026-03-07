@@ -1,0 +1,5 @@
+// vuetifyのcss変数を参照して上書きしたい場合
+@use "vuetify/settings" with (
+    $footer-padding: 0 0,
+    $grid-gutter: 0
+);

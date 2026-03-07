@@ -1,6 +1,15 @@
 {
+  "devDependencies": {
+    "@graphql-codegen/cli": "^6.1.3",
+    "@graphql-codegen/typed-document-node": "^6.1.7",
+    "@graphql-codegen/typescript": "^5.0.9",
+    "@graphql-codegen/typescript-operations": "^5.0.9"
+  },
   "name": "streaming-music",
   "private": true,
+  "scripts": {
+    "codegen": "graphql-codegen --config codegen.ts"
+  },
   "workspaces": [
     "backend",
     "frontend"
