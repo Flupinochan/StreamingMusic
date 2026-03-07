@@ -63,7 +63,7 @@ export class PipelineStack extends cdk.Stack {
         phases: {
           install: {
             "runtime-versions": {
-              nodejs: "22",
+              nodejs: "24",
             },
             commands: ["node -v", "npm ci --workspace=frontend"],
           },
