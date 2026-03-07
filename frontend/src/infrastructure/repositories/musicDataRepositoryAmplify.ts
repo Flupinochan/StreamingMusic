@@ -1,9 +1,15 @@
 import type { UploadRequestDto } from '@/infrastructure/repositories/dto/uploadRequestDto'
-import { generateClient, type GraphQLResult } from 'aws-amplify/api'
-
-const client = generateClient()
+import { type GraphQLResult } from 'aws-amplify/api'
+import type { ApiClient } from '../apiClient'
+import { makeApiClient } from '../apiClient'
 
 export class MusicDataRepositoryAmplify {
+  private client: ApiClient
+
+  constructor(client: ApiClient = makeApiClient()) {
+    this.client = client
+  }
+
   async getUrl(path: string): Promise<string> {
     const query = /* GraphQL */ `
       query GenerateS3PresignedUrl($input: GenerateS3PresignedUrlInput!) {
@@ -13,7 +19,7 @@ export class MusicDataRepositoryAmplify {
       }
     `
 
-    const response = (await client.graphql<{
+    const response = (await this.client.graphql<{
       generateS3PresignedUrl: { url: string }
     }>({
       query,
@@ -32,6 +38,7 @@ export class MusicDataRepositoryAmplify {
   async upload(input: UploadRequestDto): Promise<void> {
     const url = await this.getUrl(input.pathS3)
 
+    // presigned URLのアップロードはPUTが基本
     const response = await fetch(url, {
       method: 'PUT',
       body: input.binary.data,
@@ -54,7 +61,7 @@ export class MusicDataRepositoryAmplify {
       }
     `
 
-    const response = (await client.graphql<{
+    const response = (await this.client.graphql<{
       deleteS3Folder: { deletedCount: number }
     }>({
       query: mutation,
@@ -77,7 +84,7 @@ export class MusicDataRepositoryAmplify {
       }
     `
 
-    const response = (await client.graphql<{
+    const response = (await this.client.graphql<{
       processMusic: { manifestPath: string }
     }>({
       query: mutation,

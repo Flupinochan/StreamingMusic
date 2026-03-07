@@ -3,7 +3,9 @@ import type {
   DeleteMusicMetadataInput,
   MusicMetadata,
 } from '@/domain/value_objects/graphql/schema'
-import { generateClient, type GraphQLResult } from 'aws-amplify/api'
+import { type GraphQLResult } from 'aws-amplify/api'
+import type { ApiClient } from '../apiClient'
+import { makeApiClient } from '../apiClient'
 
 const listMusicMetadataQuery = /* GraphQL */ `
   query ListMusicMetadata {
@@ -47,11 +49,15 @@ const removeMusicMetadataMutation = /* GraphQL */ `
   }
 `
 
-const client = generateClient()
-
 export class MusicMetadataRepositoryAmplify {
+  private client: ApiClient
+
+  constructor(client: ApiClient = makeApiClient()) {
+    this.client = client
+  }
+
   async listMusicMetadata(): Promise<MusicMetadata[]> {
-    const response = (await client.graphql<{ listMusicMetadata: MusicMetadata[] }>({
+    const response = (await this.client.graphql<{ listMusicMetadata: MusicMetadata[] }>({
       query: listMusicMetadataQuery,
       authMode: 'userPool',
     })) as GraphQLResult<{ listMusicMetadata: MusicMetadata[] }>
@@ -60,7 +66,7 @@ export class MusicMetadataRepositoryAmplify {
   }
 
   async createMusicMetadata(input: CreateMusicMetadataInput): Promise<MusicMetadata> {
-    const response = (await client.graphql({
+    const response = (await this.client.graphql({
       query: createMusicMetadataMutation,
       variables: { input },
       authMode: 'userPool',
@@ -70,7 +76,7 @@ export class MusicMetadataRepositoryAmplify {
   }
 
   async removeMusicMetadata(input: DeleteMusicMetadataInput): Promise<MusicMetadata> {
-    const response = (await client.graphql({
+    const response = (await this.client.graphql({
       query: removeMusicMetadataMutation,
       variables: { input },
       authMode: 'userPool',

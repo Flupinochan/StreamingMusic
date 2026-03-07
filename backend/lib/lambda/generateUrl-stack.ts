@@ -42,13 +42,11 @@ export class GenerateUrlStack extends cdk.Stack {
       },
     );
 
+    const bucketArn = props.hostingStack.bucket.bucketArn;
     this.generateS3PresignedUrlRole.addToPolicy(
       new iam.PolicyStatement({
-        actions: ["s3:*"],
-        resources: [
-          `arn:aws:s3:::${process.env.BUCKET_NAME}`,
-          `arn:aws:s3:::${process.env.BUCKET_NAME}/*`,
-        ],
+        actions: ["s3:PutObject", "s3:PutObjectAcl", "s3:GetObject"],
+        resources: [bucketArn, `${bucketArn}/*`],
       }),
     );
 

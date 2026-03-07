@@ -17,6 +17,7 @@ import { ja } from 'vuetify/locale'
 import 'vuetify/styles/core'
 import colors from 'vuetify/util/colors'
 import App from './App.vue'
+import { makeApiClient } from './infrastructure/apiClient'
 import { MusicDataRepositoryAmplify } from './infrastructure/repositories/musicDataRepositoryAmplify'
 import { MusicDataRepositoryImpl } from './infrastructure/repositories/musicDataRepositoryImpl'
 import { MusicMetadataRepositoryAmplify } from './infrastructure/repositories/musicMetadataRepositoryAppSync'
@@ -44,6 +45,7 @@ Amplify.configure({
     },
   },
 })
+const apiClient = makeApiClient()
 
 const pinia = createPinia()
 
@@ -97,9 +99,9 @@ const vuetify = createVuetify({
 const app = createApp(App).use(pinia).use(vuetify).use(router)
 
 // DI
-const musicRepository = new MusicDataRepositoryImpl(new MusicDataRepositoryAmplify())
+const musicRepository = new MusicDataRepositoryImpl(new MusicDataRepositoryAmplify(apiClient))
 const musicMetadataRepository = new MusicMetadataRepositoryImpl(
-  new MusicMetadataRepositoryAmplify(),
+  new MusicMetadataRepositoryAmplify(apiClient),
 )
 const createMusicUsecase = new CreateMusicUsecase(musicRepository, musicMetadataRepository)
 const removeMusicUsecase = new RemoveMusicUsecase(musicRepository, musicMetadataRepository)
