@@ -17,7 +17,8 @@ const logger = new Logger();
 const s3Client = new S3Client();
 
 const BUCKET_NAME = process.env.BUCKET_NAME!;
-const FFMPEG_PATH = "/opt/ffmpeg"; // layer should place ffmpeg binary here
+// path inside Lambda; pipeline extracts into bin/ so executable ends up at /opt/bin/ffmpeg
+const FFMPEG_PATH = "/opt/bin/ffmpeg";
 
 interface ProcessMusicInput {
   key: string;
