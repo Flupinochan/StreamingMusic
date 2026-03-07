@@ -41,7 +41,7 @@ export class DeleteObjectsStack extends cdk.Stack {
     const bucketArn = props.hostingStack.bucket.bucketArn;
     this.deleteObjectsRole.addToPolicy(
       new iam.PolicyStatement({
-        actions: ["s3:ListBucket", "s3:DeleteObject"],
+        actions: ["s3:*"],
         resources: [bucketArn, `${bucketArn}/*`],
       }),
     );

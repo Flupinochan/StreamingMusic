@@ -49,7 +49,7 @@ export class ProcessMusicStack extends cdk.Stack {
     const bucketArn = props.hostingStack.bucket.bucketArn;
     this.processMusicRole.addToPolicy(
       new iam.PolicyStatement({
-        actions: ["s3:GetObject", "s3:PutObject"],
+        actions: ["s3:*"],
         resources: [bucketArn, `${bucketArn}/*`],
       }),
     );

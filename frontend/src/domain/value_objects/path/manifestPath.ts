@@ -1,19 +1,18 @@
-import { MusicPath } from "./musicPath";
+import { MusicPath } from './musicPath'
 
 /**
  * マニフェストファイルのS3上のパスを表す値オブジェクト
- * 各pathでfolderNameを統一すること!!
- * 例: "music/{folderName}/manifest/{fileName}"
+ * auidioと同じ扱いをする
  */
 export class ManifestPath extends MusicPath {
   private constructor(path: string) {
-    super(path);
+    super(path)
 
-    this.checkCategory("manifest");
+    this.checkCategory('audio')
   }
 
   static create(folderName: string, fileName: string): ManifestPath {
-    return new ManifestPath(`music/${folderName}/manifest/${fileName}`);
+    return new ManifestPath(`music/${folderName}/audio/${fileName}`)
   }
 
   /**
@@ -23,6 +22,6 @@ export class ManifestPath extends MusicPath {
    * @returns
    */
   static createFromPath(path: string): ManifestPath {
-    return new ManifestPath(path);
+    return new ManifestPath(path)
   }
 }
