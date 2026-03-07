@@ -1,0 +1,8 @@
+{
+  "name": "streaming-music",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ]
+}
