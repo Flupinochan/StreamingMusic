@@ -3,64 +3,65 @@ import * as cdk from "aws-cdk-lib/core";
 import { ApiStack } from "../lib/api-stack";
 import { AuthStack } from "../lib/auth-stack";
 import { DbStack } from "../lib/db-stack";
-import {
-  ProdBranchName,
-  ProdDomainName,
-  ProdRepoName,
-  ProdSsmParamCert,
-  ProdSsmParamGithub,
-} from "../lib/env/prod";
+import { getEnvConfig } from "../lib/env";
 import { HostingStack } from "../lib/hosting-stack";
 import { DeleteObjectsStack } from "../lib/lambda/deleteObjects-stack";
 import { GenerateUrlStack } from "../lib/lambda/generateUrl-stack";
 import { ProcessMusicStack } from "../lib/lambda/processMusic-stack";
 import { PipelineStack } from "../lib/pipeline-stack";
 
-const baseName = "StreamingMusic3";
 const app = new cdk.App();
+const envName =
+  (app.node.tryGetContext("env") as string) || process.env.CDK_ENV || "prod";
+const cfg = getEnvConfig(envName);
 
-const hostingStack = new HostingStack(app, `${baseName}HostingStack`, {
-  domainName: ProdDomainName,
-  certificateArn: ProdSsmParamCert,
+const baseName = "StreamMusic";
+const suffix = cfg.name === "prod" ? "" : `-${cfg.name}`;
+const prefix = `${baseName}${suffix}`;
+
+const hostingStack = new HostingStack(app, `${prefix}HostingStack`, {
+  domainName: cfg.domainName,
+  certificateArn: cfg.certificateArnParam,
 });
 
-new PipelineStack(app, `${baseName}PipelineStack`, {
-  hostingStack: hostingStack,
-  githubConnectionArn: ProdSsmParamGithub,
-  repoName: ProdRepoName,
-  branchName: ProdBranchName,
+new PipelineStack(app, `${prefix}PipelineStack`, {
+  hostingStack,
+  githubConnectionArn: cfg.githubConnectionArnParam,
+  repoName: cfg.repoName,
+  branchName: cfg.branchName,
+  envName: cfg.name,
 });
 
-const authStack = new AuthStack(app, `${baseName}AuthStack`, {
-  hostingStack: hostingStack,
+const authStack = new AuthStack(app, `${prefix}AuthStack`, {
+  hostingStack,
 });
 
-const dbStack = new DbStack(app, `${baseName}DbStack`, {});
+const dbStack = new DbStack(app, `${prefix}DbStack`, {});
 
-const generateUrlStack = new GenerateUrlStack(app, `${baseName}LambdaStack`, {
-  hostingStack: hostingStack,
+const generateUrlStack = new GenerateUrlStack(app, `${prefix}LambdaStack`, {
+  hostingStack,
 });
 
 const deleteObjectsStack = new DeleteObjectsStack(
   app,
-  `${baseName}DeleteObjectsStack`,
+  `${prefix}DeleteObjectsStack`,
   {
-    hostingStack: hostingStack,
+    hostingStack,
   },
 );
 
 const processMusicStack = new ProcessMusicStack(
   app,
-  `${baseName}ProcessMusicStack`,
+  `${prefix}ProcessMusicStack`,
   {
-    hostingStack: hostingStack,
+    hostingStack,
   },
 );
 
-new ApiStack(app, `${baseName}ApiStack`, {
-  authStack: authStack,
+new ApiStack(app, `${prefix}ApiStack`, {
+  authStack,
   lambdaStack: generateUrlStack,
-  deleteObjectsStack: deleteObjectsStack,
-  processMusicStack: processMusicStack,
-  dbStack: dbStack,
+  deleteObjectsStack,
+  processMusicStack,
+  dbStack,
 });

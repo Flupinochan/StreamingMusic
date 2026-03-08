@@ -1,5 +1,10 @@
-export const ProdSsmParamCert = "certificate-arn";
-export const ProdSsmParamGithub = "github-connection-arn";
-export const ProdDomainName = "music.metalmental.net";
-export const ProdRepoName = "StreamingMusic";
-export const ProdBranchName = "master";
+import { EnvConfig } from "./index";
+
+export const config: EnvConfig = {
+  name: "prod",
+  domainName: "music.metalmental.net",
+  repoName: "StreamingMusic",
+  branchName: "master",
+  certificateArnParam: "certificate-arn",
+  githubConnectionArnParam: "github-connection-arn",
+};

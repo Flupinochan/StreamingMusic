@@ -14,6 +14,7 @@ interface PipelineStackProps extends cdk.StackProps {
   githubConnectionArn: string;
   repoName: string;
   branchName: string;
+  envName: string;
 }
 
 export class PipelineStack extends cdk.Stack {
@@ -82,7 +83,7 @@ export class PipelineStack extends cdk.Stack {
           },
           pre_build: {
             commands: [
-              "npm run cdk --workspace=backend -- deploy --all --parallel --ci --require-approval never",
+              `npm run cdk --workspace=backend -- deploy --all --parallel --ci --require-approval never --context env=${props.envName}`,
             ],
           },
           build: {
