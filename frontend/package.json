@@ -49,13 +49,13 @@
   "name": "frontend",
   "private": true,
   "scripts": {
-    "prebuild": "vue-tsc --build",
     "build": "vite build",
     "dev": "vite",
     "format": "prettier --write --experimental-cli src/",
     "lint": "npm run lint:eslint && npm run lint:oxlint",
     "lint:eslint": "eslint . --fix --cache",
     "lint:oxlint": "oxlint . --fix",
+    "prebuild": "vue-tsc --build",
     "preview": "vite preview",
     "test:unit": "vitest",
     "type-check": "vue-tsc --build"

@@ -49,3 +49,15 @@ viteのbuildの仕組みを利用し環境分離
 npm run build --workspace=frontend -- --mode dev
 npm run build --workspace=frontend -- --mode prod
 ```
+
+### Local
+
+`.env.local` ファイルを作成し、以下dev環境のdomainに接続するよう環境変数を設定してdevモードでビルド
+
+```ini
+VITE_MEDIA_HOST=https://music.metalmental.net
+```
+
+```bash
+npm run dev --workspace=frontend -- --mode dev
+```
