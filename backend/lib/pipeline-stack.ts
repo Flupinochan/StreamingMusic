@@ -87,7 +87,9 @@ export class PipelineStack extends cdk.Stack {
             ],
           },
           build: {
-            commands: ["npm run build --workspace=frontend"],
+            commands: [
+              `npm run build --workspace=frontend -- --mode ${props.envName}`,
+            ],
           },
           post_build: {
             commands: [

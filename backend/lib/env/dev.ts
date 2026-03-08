@@ -5,6 +5,6 @@ export const config: EnvConfig = {
   domainName: "dev.music.metalmental.net",
   repoName: "StreamingMusic",
   branchName: "develop",
-  certificateArnParam: "certificate-arn-dev",
-  githubConnectionArnParam: "github-connection-arn-dev",
+  certificateArnParam: "certificate-arn",
+  githubConnectionArnParam: "github-connection-arn",
 };

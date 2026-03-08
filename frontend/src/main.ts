@@ -28,24 +28,25 @@ import { CreateMusicUsecase } from './use_cases/createMusicUsecase'
 import { ListMusicMetadataUsecase } from './use_cases/listMusicMetadataUsecase'
 import { RemoveMusicUsecase } from './use_cases/removeMusicUsecase'
 
-Amplify.configure({
+const amplifyConfig = {
   Auth: {
     Cognito: {
       allowGuestAccess: true,
-      userPoolId: 'ap-northeast-1_mY5IRY6gx',
-      identityPoolId: 'ap-northeast-1:0ddc579f-cf52-479a-9ba3-80b4cc51797b',
-      userPoolClientId: '4grrt9pe8fchqun9k5o96rnvd1',
+      userPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID,
+      identityPoolId: import.meta.env.VITE_COGNITO_IDENTITY_POOL_ID,
+      userPoolClientId: import.meta.env.VITE_COGNITO_CLIENT_ID,
     },
   },
   API: {
     GraphQL: {
-      endpoint:
-        'https://tgxvhtc2snbnvcd7xloiuhs5qq.appsync-api.ap-northeast-1.amazonaws.com/graphql',
+      endpoint: import.meta.env.VITE_APPSYNC_ENDPOINT,
       region: 'ap-northeast-1',
-      defaultAuthMode: 'iam',
+      defaultAuthMode: 'iam' as const,
     },
   },
-})
+}
+
+Amplify.configure(amplifyConfig)
 const apiClient = makeApiClient()
 
 const pinia = createPinia()
