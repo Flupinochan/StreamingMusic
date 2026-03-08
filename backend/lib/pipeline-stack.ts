@@ -93,7 +93,20 @@ export class PipelineStack extends cdk.Stack {
           },
           post_build: {
             commands: [
+              // sync everything first
               `aws s3 sync frontend/dist/ s3://${props.hostingStack.bucket.bucketName}/ --delete`,
+              // re‑upload asset files with long cache headers
+              `aws s3 cp frontend/dist/ s3://${props.hostingStack.bucket.bucketName}/ --recursive \
+                --exclude "*" \
+                --include "*.js" --include "*.css" --include "*.png" \
+                --include "*.jpg" --include "*.jpeg" --include "*.gif" \
+                --include "*.webp" --include "*.svg" --include "*.woff2" \
+                --include "*.ico" \
+                --cache-control "public, max-age=31536000, immutable"`,
+              // index.html with no-cache policy
+              `aws s3 cp frontend/dist/index.html s3://${props.hostingStack.bucket.bucketName}/index.html \
+                --cache-control "public, max-age=0, must-revalidate"`,
+              // finally invalidate CloudFront
               `aws cloudfront create-invalidation --distribution-id ${props.hostingStack.distribution.distributionId} --paths "/*"`,
             ],
           },

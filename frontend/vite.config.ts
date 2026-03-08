@@ -33,4 +33,8 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['@ffmpeg/ffmpeg'],
   },
+  server: {
+    // S3のCORS設定と合わせる
+    port: 5173,
+  },
 })

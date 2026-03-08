@@ -2,7 +2,7 @@ import { EnvConfig } from "./index";
 
 export const config: EnvConfig = {
   name: "dev",
-  domainName: "dev.music.metalmental.net",
+  domainName: "dev-music.metalmental.net",
   repoName: "StreamingMusic",
   branchName: "develop",
   certificateArnParam: "certificate-arn",

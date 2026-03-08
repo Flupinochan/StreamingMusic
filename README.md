@@ -26,6 +26,7 @@ npm run codegen
 初回デプロイ時
 1. Route53へのレコード追加が必要
 2. frontendのenvファイルにuserPoolやidentityPoolの設定が必要
+3. 音楽アップロード用のAdminユーザはCognitoコンソール画面から作成
 
 詳しくはCodeBuildを参照
 
@@ -52,12 +53,13 @@ npm run build --workspace=frontend -- --mode prod
 
 ### Local
 
-`.env.local` ファイルを作成し、以下dev環境のdomainに接続するよう環境変数を設定してdevモードでビルド
+`.env.local` ファイルを作成し、以下dev環境のdomainに接続するよう環境変数を設定して起動する
 
 ```ini
-VITE_MEDIA_HOST=https://music.metalmental.net
+VITE_MEDIA_HOST=https://dev-music.metalmental.net
 ```
 
 ```bash
-npm run dev --workspace=frontend -- --mode dev
+# devモードで起動するよう設定されています
+npm run dev --workspace=frontend
 ```

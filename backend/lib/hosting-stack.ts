@@ -21,6 +21,8 @@ export class HostingStack extends cdk.Stack {
 
     const stackName = cdk.Stack.of(this).stackName.toLocaleLowerCase();
 
+    // CORS設定を変更する場合はbucket名を変えて再ビルドしないと安定しないため注意
+    // またprodの場合はlocalhostからのCORSは許可しなくても良かったかもしれない
     this.bucket = new s3.Bucket(this, "bucket", {
       bucketName: `${stackName}-bucket`,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,

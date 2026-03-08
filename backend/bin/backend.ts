@@ -16,6 +16,7 @@ const envName =
 const cfg = getEnvConfig(envName);
 
 const baseName = "StreamMusic";
+// 後からdevを追加したため互換性のためprodにはenv名を付けていない
 const suffix = cfg.name === "prod" ? "" : `-${cfg.name}`;
 const prefix = `${baseName}${suffix}`;
 
