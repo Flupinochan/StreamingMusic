@@ -93,8 +93,9 @@ export class PipelineStack extends cdk.Stack {
           },
           post_build: {
             commands: [
-              // sync everything first
-              `aws s3 sync frontend/dist/ s3://${props.hostingStack.bucket.bucketName}/ --delete`,
+              // sync everything first, but skip music directory
+              `aws s3 sync frontend/dist/ s3://${props.hostingStack.bucket.bucketName}/ --delete --exclude "music/*"`,
+
               // re‑upload asset files with long cache headers
               `aws s3 cp frontend/dist/ s3://${props.hostingStack.bucket.bucketName}/ --recursive \
                 --exclude "*" \

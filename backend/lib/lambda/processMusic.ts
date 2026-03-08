@@ -82,12 +82,17 @@ export const handler = async (
   const uploadFile = async (localPath: string, destKey: string) => {
     const body = fs.createReadStream(localPath);
     await s3Client.send(
-      new PutObjectCommand({ Bucket: BUCKET_NAME, Key: destKey, Body: body }),
+      new PutObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: destKey,
+        Body: body,
+        CacheControl: "public, max-age=31536000, immutable",
+      }),
     );
   };
 
+  // manifest + segments
   await uploadFile(manifest, manifestKey);
-  // upload segments
   const files = fs.readdirSync("/tmp").filter((f) => f.match(/^seg\d{3}\.ts$/));
   await Promise.all(
     files.map((f) => uploadFile(`/tmp/${f}`, `${folder}/${f}`)),
