@@ -16,7 +16,7 @@ import { GenerateUrlStack } from "../lib/lambda/generateUrl-stack";
 import { ProcessMusicStack } from "../lib/lambda/processMusic-stack";
 import { PipelineStack } from "../lib/pipeline-stack";
 
-const baseName = "StreamingMusic";
+const baseName = "StreamingMusic3";
 const app = new cdk.App();
 
 const hostingStack = new HostingStack(app, `${baseName}HostingStack`, {

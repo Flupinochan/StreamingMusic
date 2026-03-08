@@ -66,7 +66,13 @@ export class HostingStack extends cdk.Stack {
       certificate: certificate,
       defaultRootObject: "index.html",
       defaultBehavior: {
-        origin: origins.S3BucketOrigin.withOriginAccessControl(this.bucket),
+        origin: origins.S3BucketOrigin.withOriginAccessControl(this.bucket, {
+          originAccessLevels: [
+            cloudfront.AccessLevel.READ,
+            cloudfront.AccessLevel.LIST,
+          ],
+        }),
+        originRequestPolicy: cloudfront.OriginRequestPolicy.CORS_S3_ORIGIN,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
         cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
