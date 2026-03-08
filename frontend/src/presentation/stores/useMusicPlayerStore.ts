@@ -53,8 +53,9 @@ export type RepeatMode = 'none' | 'one' | 'all'
 export interface PlayerState {
   musicId: string | undefined
   musicTitle: string | undefined
-  artworkUrl: string | undefined
-  artworkThumbnailUrl: string | undefined
+  manifestPath: string | undefined
+  artworkImagePath: string | undefined
+  artworkThumbnailImagePath: string | undefined
   positionSeconds: number
   musicSeconds: number
   status: PlayerStatus
@@ -71,8 +72,9 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
   const playerState = ref<PlayerState>({
     musicId: undefined,
     musicTitle: undefined,
-    artworkUrl: undefined,
-    artworkThumbnailUrl: undefined,
+    manifestPath: undefined,
+    artworkImagePath: undefined,
+    artworkThumbnailImagePath: undefined,
     positionSeconds: 0,
     musicSeconds: 0,
     status: 'stopped',
@@ -171,7 +173,8 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
   // トラック管理 ----------------------------------------------------------
   const loadTrack = async (track: MusicMetadataDto): Promise<void> => {
     // S3から曲のURLを取得
-    const url = new URL(`${window.location.origin}/${track.manifestPath}`)
+    // const url = new URL(`${window.location.origin}/${track.manifestPath}`)
+    const url = new URL(`https://music2.metalmental.net/${track.manifestPath}`)
     if (audio && currentUrl === url) return
     disposeEngine()
     // 曲をロード
@@ -263,8 +266,9 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
         ...playerState.value,
         musicId: undefined,
         musicTitle: undefined,
-        artworkUrl: undefined,
-        artworkThumbnailUrl: undefined,
+        manifestPath: undefined,
+        artworkImagePath: undefined,
+        artworkThumbnailImagePath: undefined,
         positionSeconds: 0,
         musicSeconds: 0,
         status: 'stopped',

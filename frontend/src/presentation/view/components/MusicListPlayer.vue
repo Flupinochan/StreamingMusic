@@ -21,7 +21,7 @@
       >
         <template #prepend>
           <v-img
-            :src="music.artworkThumbnailImagePath"
+            :src="`https://music2.metalmental.net/${music.artworkThumbnailImagePath}`"
             style="view-transition-name: artwork"
             class="me-4"
             width="56"

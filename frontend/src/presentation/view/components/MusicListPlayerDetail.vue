@@ -2,7 +2,7 @@
   <div
     class="container-fluid relative-container d-flex align-center justify-center"
     :style="{
-      backgroundImage: `url(${musicPlayerStore.playerState.artworkUrl})`,
+      backgroundImage: `url(https://music2.metalmental.net/${musicPlayerStore.playerState.artworkThumbnailImagePath})`,
       backgroundColor: 'rgba(0,0,0,0.8)',
       backgroundSize: 'cover',
       backgroundPosition: 'center center',
@@ -12,7 +12,7 @@
   >
     <div class="glass-overlay"></div>
     <v-img
-      :src="musicPlayerStore.playerState.artworkUrl"
+      :src="`https://music2.metalmental.net/${musicPlayerStore.playerState.artworkImagePath}`"
       style="view-transition-name: artwork"
       class="clickable"
       contain
@@ -25,62 +25,59 @@
       @keydown.space="handleImageClick()"
     />
 
-    <p
-      v-if="musicPlayerStore.playerState.musicTitle"
-      class="title-overlay primary--text"
-    >
+    <p v-if="musicPlayerStore.playerState.musicTitle" class="title-overlay primary--text">
       {{ musicPlayerStore.playerState.musicTitle }}
     </p>
   </div>
 </template>
 
 <script setup lang="ts">
-import { useMusicPlayerStore } from "@/presentation/stores/useMusicPlayerStore";
-import type { DetailProps } from "@/router";
-import { watch } from "vue";
-import { useRouter } from "vue-router";
+import { useMusicPlayerStore } from '@/presentation/stores/useMusicPlayerStore'
+import type { DetailProps } from '@/router'
+import { watch } from 'vue'
+import { useRouter } from 'vue-router'
 
-const props = defineProps<DetailProps>();
+const props = defineProps<DetailProps>()
 
-const musicPlayerStore = useMusicPlayerStore();
-const router = useRouter();
+const musicPlayerStore = useMusicPlayerStore()
+const router = useRouter()
 
 watch(
   () => props.musicId,
   async (newId) => {
-    if (!newId) return;
+    if (!newId) return
     if (newId !== musicPlayerStore.playerState.musicId) {
-      await musicPlayerStore.selectTrackById(newId);
+      await musicPlayerStore.selectTrackById(newId)
     }
   },
   { immediate: true },
-);
+)
 
 watch(
   () => musicPlayerStore.playerState.musicId,
   (id) => {
-    if (!id) return;
+    if (!id) return
     if (id !== props.musicId) {
-      router.replace({ name: "detail", params: { id } });
+      router.replace({ name: 'detail', params: { id } })
     }
   },
-);
+)
 
 watch(
   () => musicPlayerStore.tracks,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   (_tracks) => {
-    const id = props.musicId;
+    const id = props.musicId
     if (id && !musicPlayerStore.playerState.musicId) {
-      musicPlayerStore.selectTrackById(id);
+      musicPlayerStore.selectTrackById(id)
     }
   },
   { immediate: true },
-);
+)
 
 const handleImageClick = (): void => {
-  router.push({ name: "home" });
-};
+  router.push({ name: 'home' })
+}
 </script>
 
 <style scoped>

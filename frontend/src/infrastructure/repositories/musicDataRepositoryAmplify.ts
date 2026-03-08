@@ -24,7 +24,6 @@ export class MusicDataRepositoryAmplify {
     }>({
       query,
       variables: { input: { key: path } },
-      authMode: 'userPool',
     })) as GraphQLResult<{ generateS3PresignedUrl: { url: string } }>
 
     const url = response.data?.generateS3PresignedUrl?.url
@@ -66,7 +65,6 @@ export class MusicDataRepositoryAmplify {
     }>({
       query: mutation,
       variables: { input: { prefix } },
-      authMode: 'userPool',
     })) as GraphQLResult<{ deleteS3Folder: { deletedCount: number } }>
 
     const count = response.data?.deleteS3Folder?.deletedCount
@@ -89,7 +87,6 @@ export class MusicDataRepositoryAmplify {
     }>({
       query: mutation,
       variables: { input: { key } },
-      authMode: 'userPool',
     })) as GraphQLResult<{ processMusic: { manifestPath: string } }>
 
     const path = response.data?.processMusic?.manifestPath

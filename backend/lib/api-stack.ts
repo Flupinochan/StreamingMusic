@@ -66,21 +66,49 @@ export class ApiStack extends cdk.Stack {
       },
       authorizationConfig: {
         defaultAuthorization: {
-          authorizationType: appsync.AuthorizationType.USER_POOL,
-          userPoolConfig: {
-            userPool: props.authStack.userPool,
-          },
+          authorizationType: appsync.AuthorizationType.IAM,
         },
+        additionalAuthorizationModes: [
+          {
+            authorizationType: appsync.AuthorizationType.USER_POOL,
+            userPoolConfig: {
+              userPool: props.authStack.userPool,
+            },
+          },
+        ],
       },
       xrayEnabled: false,
     });
 
+    // 認証ユーザはAPI呼び出し全権限付与
     new iam.Policy(this, "ApiAccessPolicy", {
       roles: [props.authStack.identityPool.authenticatedRole],
       statements: [
         new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
           actions: ["appsync:GraphQL"],
           resources: [`${this.api.arn}/*`],
+        }),
+      ],
+    });
+    // ゲストユーザは読み取りQueryとSubscriptionのみ許可
+    new iam.Policy(this, "ApiAccessPolicyForGuest", {
+      roles: [props.authStack.identityPool.unauthenticatedRole],
+      statements: [
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ["appsync:GraphQL"],
+          resources: [`${this.api.arn}/*`],
+          conditions: {
+            "ForAllValues:StringEquals": {
+              "appsync:Field": [
+                "listMusicMetadata",
+                "onCreateMusicMetadata",
+                "onUpdateMusicMetadata",
+                "onRemoveMusicMetadata",
+              ],
+            },
+          },
         }),
       ],
     });
@@ -162,7 +190,7 @@ export class ApiStack extends cdk.Stack {
       fieldName: "removeMusicMetadata",
       requestMappingTemplate: appsync.MappingTemplate.dynamoDbDeleteItem(
         "id",
-        "id",
+        "input.id",
       ),
       responseMappingTemplate: appsync.MappingTemplate.dynamoDbResultItem(),
     });

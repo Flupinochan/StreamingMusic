@@ -31,6 +31,7 @@ import { RemoveMusicUsecase } from './use_cases/removeMusicUsecase'
 Amplify.configure({
   Auth: {
     Cognito: {
+      allowGuestAccess: true,
       userPoolId: 'ap-northeast-1_RjgXGFL4a',
       identityPoolId: 'ap-northeast-1:cad3f4cb-458c-48c0-a4b3-b9d194cf6959',
       userPoolClientId: '6qe491q7iq8ondveka5brfcm77',
@@ -41,7 +42,7 @@ Amplify.configure({
       endpoint:
         'https://ya4t5uyzpvchpjf7nv2y4rbzka.appsync-api.ap-northeast-1.amazonaws.com/graphql',
       region: 'ap-northeast-1',
-      defaultAuthMode: 'userPool',
+      defaultAuthMode: 'iam',
     },
   },
 })

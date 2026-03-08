@@ -59,7 +59,6 @@ export class MusicMetadataRepositoryAmplify {
   async listMusicMetadata(): Promise<MusicMetadata[]> {
     const response = (await this.client.graphql<{ listMusicMetadata: MusicMetadata[] }>({
       query: listMusicMetadataQuery,
-      authMode: 'userPool',
     })) as GraphQLResult<{ listMusicMetadata: MusicMetadata[] }>
 
     return response.data?.listMusicMetadata ?? []
@@ -69,7 +68,6 @@ export class MusicMetadataRepositoryAmplify {
     const response = (await this.client.graphql({
       query: createMusicMetadataMutation,
       variables: { input },
-      authMode: 'userPool',
     })) as GraphQLResult<{ createMusicMetadata: MusicMetadata }>
 
     return response.data!.createMusicMetadata
@@ -79,7 +77,6 @@ export class MusicMetadataRepositoryAmplify {
     const response = (await this.client.graphql({
       query: removeMusicMetadataMutation,
       variables: { input },
-      authMode: 'userPool',
     })) as GraphQLResult<{ removeMusicMetadata: MusicMetadata }>
 
     return response.data!.removeMusicMetadata

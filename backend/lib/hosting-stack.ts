@@ -30,7 +30,10 @@ export class HostingStack extends cdk.Stack {
       removalPolicy: RemovalPolicy.DESTROY,
       cors: [
         {
-          allowedOrigins: [`https://${props.domainName}`],
+          allowedOrigins: [
+            `https://${props.domainName}`,
+            "http://localhost:5173",
+          ],
           allowedMethods: [
             s3.HttpMethods.GET,
             s3.HttpMethods.HEAD,

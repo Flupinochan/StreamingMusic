@@ -34,8 +34,8 @@
         <!-- artwork on left edge -->
         <v-col cols="auto">
           <v-img
-            v-if="musicPlayerStore.playerState.artworkThumbnailUrl"
-            :src="musicPlayerStore.playerState.artworkThumbnailUrl"
+            v-if="musicPlayerStore.playerState.artworkThumbnailImagePath"
+            :src="`https://music2.metalmental.net/${musicPlayerStore.playerState.artworkThumbnailImagePath}`"
             :alt="musicPlayerStore.playerState.musicTitle || ''"
             width="64"
             height="64"
@@ -76,9 +76,7 @@
                       : 'リピートを無効'
                 "
                 :color="
-                  musicPlayerStore.playerState.repeatMode === 'none'
-                    ? 'on-surface'
-                    : 'primary'
+                  musicPlayerStore.playerState.repeatMode === 'none' ? 'on-surface' : 'primary'
                 "
                 variant="text"
                 @click="musicPlayerStore.toggleRepeatMode()"
@@ -105,15 +103,10 @@
                 :icon="musicPlayerStore.isPlaying() ? '$mdiPause' : '$mdiPlay'"
                 :aria-label="musicPlayerStore.isPlaying() ? '一時停止' : '再生'"
                 :color="musicPlayerStore.isPlaying() ? 'primary' : 'on-surface'"
-                :disabled="
-                  !musicPlayerStore.isPlaying() &&
-                  !musicPlayerStore.canPlaying()
-                "
+                :disabled="!musicPlayerStore.isPlaying() && !musicPlayerStore.canPlaying()"
                 variant="tonal"
                 @click="
-                  musicPlayerStore.isPlaying()
-                    ? musicPlayerStore.pause()
-                    : musicPlayerStore.play()
+                  musicPlayerStore.isPlaying() ? musicPlayerStore.pause() : musicPlayerStore.play()
                 "
               />
             </v-col>
@@ -141,11 +134,7 @@
                 "
                 :size="btnSize"
                 icon="$mdiShuffleVariant"
-                :color="
-                  musicPlayerStore.playerState.shuffleEnabled
-                    ? 'primary'
-                    : 'on-surface'
-                "
+                :color="musicPlayerStore.playerState.shuffleEnabled ? 'primary' : 'on-surface'"
                 variant="text"
                 @click="musicPlayerStore.toggleShuffle()"
               >
@@ -159,110 +148,95 @@
 </template>
 
 <script setup lang="ts">
-import { useResponsiveButton } from "@/presentation/composables/useResponsiveButton";
-import { useMusicPlayerStore } from "@/presentation/stores/useMusicPlayerStore";
-import type { MusicMetadataDto } from "@/use_cases/musicMetadataDto";
-import { computed, onMounted, watch } from "vue";
-import { useRouter } from "vue-router";
+import { useResponsiveButton } from '@/presentation/composables/useResponsiveButton'
+import { useMusicPlayerStore } from '@/presentation/stores/useMusicPlayerStore'
+import type { MusicMetadataDto } from '@/use_cases/musicMetadataDto'
+import { computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 
-const { btnSize } = useResponsiveButton();
-const musicPlayerStore = useMusicPlayerStore();
-const router = useRouter();
+const { btnSize } = useResponsiveButton()
+const musicPlayerStore = useMusicPlayerStore()
+const router = useRouter()
 
 const sliderSeconds = computed<number>({
   get: () => musicPlayerStore.playerState.positionSeconds,
   set: (v) => {
-    musicPlayerStore.seek(v);
+    musicPlayerStore.seek(v)
   },
-});
+})
 
 onMounted(() => {
-  if ("mediaSession" in navigator) {
-    const actionHandlers: [MediaSessionAction, (...args: unknown[]) => void][] =
+  if ('mediaSession' in navigator) {
+    const actionHandlers: [MediaSessionAction, (...args: unknown[]) => void][] = [
+      ['play', (): Promise<void> => musicPlayerStore.play()],
+      ['pause', (): void => musicPlayerStore.pause()],
+      ['seekforward', (): void => musicPlayerStore.nextSeek()],
+      ['seekbackward', (): void => musicPlayerStore.previousSeek()],
+      ['previoustrack', (): Promise<MusicMetadataDto | undefined> => musicPlayerStore.previous()],
+      ['nexttrack', (): Promise<MusicMetadataDto | undefined> => musicPlayerStore.next()],
+      ['stop', (): void => musicPlayerStore.stop()],
       [
-        ["play", (): Promise<void> => musicPlayerStore.play()],
-        ["pause", (): void => musicPlayerStore.pause()],
-        ["seekforward", (): void => musicPlayerStore.nextSeek()],
-        ["seekbackward", (): void => musicPlayerStore.previousSeek()],
-        [
-          "previoustrack",
-          (): Promise<MusicMetadataDto | undefined> =>
-            musicPlayerStore.previous(),
-        ],
-        [
-          "nexttrack",
-          (): Promise<MusicMetadataDto | undefined> => musicPlayerStore.next(),
-        ],
-        ["stop", (): void => musicPlayerStore.stop()],
-        [
-          "seekto",
-          (...args: unknown[]): void => {
-            const details = args[0] as { seekTime?: number } | undefined;
-            if (details?.seekTime !== undefined) {
-              musicPlayerStore.seek(details.seekTime);
-            }
-          },
-        ],
-      ];
+        'seekto',
+        (...args: unknown[]): void => {
+          const details = args[0] as { seekTime?: number } | undefined
+          if (details?.seekTime !== undefined) {
+            musicPlayerStore.seek(details.seekTime)
+          }
+        },
+      ],
+    ]
 
     for (const [action, handler] of actionHandlers) {
       try {
-        navigator.mediaSession.setActionHandler(
-          action,
-          handler as unknown as () => void,
-        );
+        navigator.mediaSession.setActionHandler(action, handler as unknown as () => void)
       } catch {}
     }
   }
-});
+})
 
 const handleFooterImageClick = (): void => {
-  const id = musicPlayerStore.playerState.musicId;
+  const id = musicPlayerStore.playerState.musicId
   if (id) {
-    router.push({ name: "detail", params: { id } });
+    router.push({ name: 'detail', params: { id } })
   }
-};
+}
 
 const updateMediaSessionPosition = (): void => {
-  if (!("mediaSession" in navigator)) return;
-  if ("setPositionState" in navigator.mediaSession) {
+  if (!('mediaSession' in navigator)) return
+  if ('setPositionState' in navigator.mediaSession) {
     try {
       navigator.mediaSession.setPositionState({
         duration: musicPlayerStore.playerState.musicSeconds,
         position: musicPlayerStore.playerState.positionSeconds,
         playbackRate: 1.0,
-      });
+      })
     } catch {}
   }
-};
+}
 
 watch(
   () => musicPlayerStore.playerState,
   (state) => {
-    if (!("mediaSession" in navigator)) return;
+    if (!('mediaSession' in navigator)) return
 
     navigator.mediaSession.metadata = new MediaMetadata({
-      title: state.musicTitle ?? "",
-      artwork: state.artworkUrl
+      title: state.musicTitle ?? '',
+      artwork: state.artworkThumbnailImagePath
         ? [
             {
-              src: state.artworkUrl,
+              src: `https://music2.metalmental.net/${state.artworkThumbnailImagePath}`,
             },
           ]
         : undefined,
-    });
+    })
 
     navigator.mediaSession.playbackState =
-      state.status === "playing"
-        ? "playing"
-        : state.status === "paused"
-          ? "paused"
-          : "none";
+      state.status === 'playing' ? 'playing' : state.status === 'paused' ? 'paused' : 'none'
 
-    updateMediaSessionPosition();
+    updateMediaSessionPosition()
   },
   { deep: true, immediate: true },
-);
+)
 </script>
 
 <style scoped>

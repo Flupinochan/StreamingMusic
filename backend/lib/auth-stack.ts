@@ -49,7 +49,7 @@ export class AuthStack extends cdk.Stack {
     // S3へ音楽や画像をアップロードするための権限を付与
     this.identityPool = new identityPool.IdentityPool(this, "identitypool", {
       identityPoolName: `${stackName}-identitypool`,
-      allowUnauthenticatedIdentities: false,
+      allowUnauthenticatedIdentities: true,
       authenticationProviders: {
         userPools: [
           new identityPool.UserPoolAuthenticationProvider({
@@ -59,6 +59,7 @@ export class AuthStack extends cdk.Stack {
         ],
       },
     });
+    // API側でも定義しているため注意
     this.identityPool.authenticatedRole.addToPrincipalPolicy(
       new cdk.aws_iam.PolicyStatement({
         actions: ["s3:*"],
