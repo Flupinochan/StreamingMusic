@@ -3,6 +3,7 @@ import { ref } from 'vue'
 
 import type { MusicMetadataDto } from '@/use_cases/musicMetadataDto'
 import type Hls from 'hls.js'
+import { getOwnUrl } from '../utils/domain'
 
 type HlsEventsType = typeof Hls.Events
 
@@ -53,6 +54,7 @@ export type RepeatMode = 'none' | 'one' | 'all'
 export interface PlayerState {
   musicId: string | undefined
   musicTitle: string | undefined
+  url: URL
   manifestPath: string | undefined
   artworkImagePath: string | undefined
   artworkThumbnailImagePath: string | undefined
@@ -72,6 +74,7 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
   const playerState = ref<PlayerState>({
     musicId: undefined,
     musicTitle: undefined,
+    url: new URL(getOwnUrl()),
     manifestPath: undefined,
     artworkImagePath: undefined,
     artworkThumbnailImagePath: undefined,
@@ -88,14 +91,11 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
   // queue配列の中で現在再生している曲のindex (-1の場合は再生する曲がない状態)
   let index = -1
   let history: number[] = []
-  let currentUrl: URL | undefined
   // HTMLMediaElementを継承している
   let audio: HTMLAudioElement | undefined
   let hls: Hls | undefined
   // HLS のマニフェスト解析完了を待つ Promise
   let hlsReady: Promise<void> | undefined
-  // マニフェストを blob に書き換えた URL (disposeEngine で revoke)
-  let manifestBlobUrl: string | undefined
   let audioEndedListener: (() => void) | undefined
   // seek用タイマーID
   let tickId: number | undefined
@@ -173,17 +173,20 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
   // トラック管理 ----------------------------------------------------------
   const loadTrack = async (track: MusicMetadataDto): Promise<void> => {
     // S3から曲のURLを取得
-    // const url = new URL(`${window.location.origin}/${track.manifestPath}`)
-    const url = new URL(`https://music2.metalmental.net/${track.manifestPath}`)
-    if (audio && currentUrl === url) return
+    const loadManifestPath = track.manifestPath
+    const manifestUrl = new URL(loadManifestPath, getOwnUrl())
+    if (audio && playerState.value.manifestPath === loadManifestPath) return
     disposeEngine()
     // 曲をロード
-    currentUrl = url
+    playerState.value = {
+      ...playerState.value,
+      manifestPath: loadManifestPath,
+    }
     // HTMLAudioElement(audioタグ)を生成
     audio = new Audio()
     audio.preload = 'auto'
     // HLS ソースを前提として扱う
-    const srcStr = url.toString()
+    const srcStr = manifestUrl.toString()
 
     // 理論上 HLS マニフェストであるべきだが、念のためチェックする
     if (!/\.m3u8(?:\?|$)/i.test(srcStr)) {
@@ -203,7 +206,7 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
       hls!.once(HlsEvents!.MANIFEST_PARSED, () => resolve())
     })
 
-    hls.loadSource(currentUrl.toString())
+    hls.loadSource(manifestUrl.toString())
     hls.attachMedia(audio)
 
     // 再生前に manifest 解析完了を待機
@@ -315,12 +318,11 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
       hls = undefined
     }
 
-    currentUrl = undefined
-    hlsReady = undefined
-    if (manifestBlobUrl) {
-      URL.revokeObjectURL(manifestBlobUrl)
-      manifestBlobUrl = undefined
+    playerState.value = {
+      ...playerState.value,
+      manifestPath: undefined,
     }
+    hlsReady = undefined
   }
 
   // 再生操作 --------------------------------------------------------------

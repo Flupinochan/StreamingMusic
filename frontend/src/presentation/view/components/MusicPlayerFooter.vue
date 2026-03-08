@@ -35,7 +35,7 @@
         <v-col cols="auto">
           <v-img
             v-if="musicPlayerStore.playerState.artworkThumbnailImagePath"
-            :src="`https://music2.metalmental.net/${musicPlayerStore.playerState.artworkThumbnailImagePath}`"
+            :src="`${musicPlayerStore.playerState.url}${musicPlayerStore.playerState.artworkThumbnailImagePath}`"
             :alt="musicPlayerStore.playerState.musicTitle || ''"
             width="64"
             height="64"
@@ -224,7 +224,7 @@ watch(
       artwork: state.artworkThumbnailImagePath
         ? [
             {
-              src: `https://music2.metalmental.net/${state.artworkThumbnailImagePath}`,
+              src: `${musicPlayerStore.playerState.url}${state.artworkThumbnailImagePath}`,
             },
           ]
         : undefined,

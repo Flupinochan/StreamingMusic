@@ -6,13 +6,15 @@
       "request": "launch",
       "type": "chrome",
       "url": "http://localhost:5173",
-      "webRoot": "${workspaceFolder}",
+      "webRoot": "${workspaceFolder}/frontend",
       "sourceMaps": true,
       "sourceMapPathOverrides": {
-        "webpack:///*": "${webRoot}/*"
+        "webpack:///*": "${webRoot}/*",
+        "vite:///*": "${webRoot}/*",
+        "http://localhost:5173/*": "${webRoot}/*"
       },
       "resolveSourceMapLocations": [
-        "${workspaceFolder}/**",
+        "${workspaceFolder}/frontend/**",
         "!**/node_modules/**"
       ],
       "trace": false,

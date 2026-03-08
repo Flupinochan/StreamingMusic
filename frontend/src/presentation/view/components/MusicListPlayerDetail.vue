@@ -2,7 +2,7 @@
   <div
     class="container-fluid relative-container d-flex align-center justify-center"
     :style="{
-      backgroundImage: `url(https://music2.metalmental.net/${musicPlayerStore.playerState.artworkThumbnailImagePath})`,
+      backgroundImage: `url(${musicPlayerStore.playerState.url}${musicPlayerStore.playerState.artworkThumbnailImagePath})`,
       backgroundColor: 'rgba(0,0,0,0.8)',
       backgroundSize: 'cover',
       backgroundPosition: 'center center',
@@ -12,7 +12,7 @@
   >
     <div class="glass-overlay"></div>
     <v-img
-      :src="`https://music2.metalmental.net/${musicPlayerStore.playerState.artworkImagePath}`"
+      :src="`${musicPlayerStore.playerState.url}${musicPlayerStore.playerState.artworkImagePath}`"
       style="view-transition-name: artwork"
       class="clickable"
       contain
