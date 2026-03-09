@@ -12,21 +12,23 @@
 </template>
 
 <script setup lang="ts">
-import { useMusicStore } from "@/presentation/stores/useMusicStore";
-import MusicPlayerFooter from "@/presentation/view/components/MusicPlayerFooter.vue";
-import { onMounted, onUnmounted } from "vue";
-import { useMusicPlayerStore } from "./presentation/stores/useMusicPlayerStore";
+import { useMusicStore } from '@/presentation/stores/useMusicStore'
+import MusicPlayerFooter from '@/presentation/view/components/MusicPlayerFooter.vue'
+import { onMounted, onUnmounted } from 'vue'
+import { useMusicPlayerStore } from './presentation/stores/useMusicPlayerStore'
+import { loadHls } from './presentation/utils/hls'
 
-const musicStore = useMusicStore();
-const musicPlayerStore = useMusicPlayerStore();
+const musicStore = useMusicStore()
+const musicPlayerStore = useMusicPlayerStore()
 
 onMounted(() => {
-  musicStore.listMusic();
-});
+  musicStore.listMusic()
+  requestIdleCallback(() => loadHls(), { timeout: 3000 })
+})
 
 onUnmounted(() => {
-  musicPlayerStore.disposeEngine();
-});
+  musicPlayerStore.disposeEngine()
+})
 </script>
 
 <!-- グローバルCSS定義 -->

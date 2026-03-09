@@ -4,48 +4,7 @@ import { ref } from 'vue'
 import type { MusicMetadataDto } from '@/use_cases/musicMetadataDto'
 import type Hls from 'hls.js'
 import { getOwnUrl } from '../utils/domain'
-
-type HlsEventsType = typeof Hls.Events
-
-type HlsModuleShape = {
-  default: typeof Hls
-  Events: HlsEventsType
-}
-
-type HlsModuleAltShape = {
-  Events: HlsEventsType
-} & typeof Hls
-
-function isHlsModuleShape(mod: unknown): mod is HlsModuleShape {
-  return typeof mod === 'object' && mod !== null && 'default' in mod && 'Events' in mod
-}
-
-function isHlsModuleAltShape(mod: unknown): mod is HlsModuleAltShape {
-  return typeof mod === 'object' && mod !== null && 'Events' in mod
-}
-
-let HlsClass: typeof Hls | undefined
-let HlsEvents: HlsEventsType | undefined
-
-const loadHls = async (): Promise<void> => {
-  if (HlsClass) return
-
-  const mod: unknown = await import('hls.js/dist/hls.light')
-
-  if (isHlsModuleShape(mod)) {
-    HlsClass = mod.default
-    HlsEvents = mod.Events
-    return
-  }
-
-  if (isHlsModuleAltShape(mod)) {
-    HlsClass = mod as unknown as typeof Hls
-    HlsEvents = mod.Events
-    return
-  }
-
-  throw new Error('Invalid hls.js module shape')
-}
+import { HlsClass, HlsEvents, loadHls } from '../utils/hls'
 
 export type PlayerStatus = 'stopped' | 'playing' | 'paused'
 export type RepeatMode = 'none' | 'one' | 'all'
