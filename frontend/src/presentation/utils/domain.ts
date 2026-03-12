@@ -3,6 +3,5 @@
 export function getOwnUrl(): string {
   const env = import.meta.env.VITE_MEDIA_HOST as string | undefined
   const url = env && env.length > 0 ? env : window.location.origin
-  console.log(`Own URL: ${url}`)
   return url
 }

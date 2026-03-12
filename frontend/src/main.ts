@@ -95,6 +95,9 @@ const vuetify = createVuetify({
     VListItemTitle: {
       class: 'primary',
     },
+    VSnackbar: {
+      color: 'primary',
+    },
   },
 })
 

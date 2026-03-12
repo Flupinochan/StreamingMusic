@@ -62,4 +62,14 @@ VITE_MEDIA_HOST=https://dev-music.metalmental.net
 ```bash
 # devモードで起動するよう設定されています
 npm run dev --workspace=frontend
+
+# 以下で本番環境同様の動作確認が可能
+npm run build --workspace=frontend -- --mode dev
+npx serve frontend/dist --single --listen 5173
 ```
+
+## 負債
+
+- 次回はSSGを意識したアプリを作成する
+  - 画面をリロードした際にダークモードに変化する際のちらつきが防げない
+  - GitHub UIのような再レンダリングされていないように見せる方法ができない

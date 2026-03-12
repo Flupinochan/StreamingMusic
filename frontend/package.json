@@ -3,6 +3,7 @@
     "aws-amplify": "^6.16.2",
     "hls.js": "^1.6.15",
     "pinia": "^3.0.4",
+    "vite-plugin-pwa": "^1.2.0",
     "vue": "^3.5.29",
     "vue-router": "^5.0.3"
   },
