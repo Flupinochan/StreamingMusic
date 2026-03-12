@@ -1,206 +1,110 @@
 import * as cdk from "aws-cdk-lib";
-import * as appsync from "aws-cdk-lib/aws-appsync";
-import * as iam from "aws-cdk-lib/aws-iam";
-import * as logs from "aws-cdk-lib/aws-logs";
+import * as apigateway from "aws-cdk-lib/aws-apigateway";
+import * as lambda from "aws-cdk-lib/aws-lambda";
 import { Construct } from "constructs";
-import * as path from "path";
 import { AuthStack } from "./auth-stack";
-import { DbStack } from "./db-stack";
-import { DeleteObjectsStack } from "./lambda/deleteObjects-stack";
-import { GenerateUrlStack } from "./lambda/generateUrl-stack";
-import { ProcessMusicStack } from "./lambda/processMusic-stack";
 
 interface ApiStackProps extends cdk.StackProps {
   authStack: AuthStack;
-  lambdaStack: GenerateUrlStack;
-  deleteObjectsStack: DeleteObjectsStack;
-  processMusicStack: ProcessMusicStack;
-  dbStack: DbStack;
+  getMetadataFunction: lambda.Function;
+  postMetadataFunction: lambda.Function;
+  deleteMetadataFunction: lambda.Function;
+  generateUrlFunction: lambda.Function;
+  deleteObjectsFunction: lambda.Function;
+  processMusicFunction: lambda.Function;
+  apiPath: string;
 }
 
 export class ApiStack extends cdk.Stack {
-  public readonly apiLogGroup: logs.LogGroup;
-  public readonly apiLogRole: iam.Role;
-  public readonly api: appsync.GraphqlApi;
-  public readonly lambdaDataSource: appsync.LambdaDataSource;
-  public readonly datasource: appsync.DynamoDbDataSource;
+  // REST API for metadata and utilities
+  public readonly metadataRestApi: apigateway.RestApi;
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
 
-    this.apiLogGroup = new logs.LogGroup(this, "ApiLogGroup", {
-      logGroupName: `/aws/appsync/apis/${cdk.Stack.of(this).stackName.toLocaleLowerCase()}-api`,
-      retention: logs.RetentionDays.ONE_DAY,
+    // set up a RestApi for all operations (metadata + utilities)
+    const apiLogGroup = new cdk.aws_logs.LogGroup(this, "ApiGatewayLogGroup", {
+      logGroupName: `/aws/apigateway/${cdk.Stack.of(this).stackName.toLowerCase()}-api`,
+      retention: cdk.aws_logs.RetentionDays.ONE_DAY,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    this.apiLogRole = new iam.Role(this, "ApiLogRole", {
-      assumedBy: new iam.ServicePrincipal("appsync.amazonaws.com"),
-    });
-
-    this.apiLogRole.addToPolicy(
-      new iam.PolicyStatement({
-        actions: [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents",
-        ],
-        resources: [
-          this.apiLogGroup.logGroupArn,
-          `${this.apiLogGroup.logGroupArn}:*`,
-        ],
-      }),
-    );
-
-    this.api = new appsync.GraphqlApi(this, "Api", {
-      name: "StreamingMusicApi",
-      definition: appsync.Definition.fromFile(
-        path.join(__dirname, "graphql", "schema.graphql"),
-      ),
-      queryDepthLimit: 10,
-      visibility: appsync.Visibility.GLOBAL,
-      logConfig: {
-        fieldLogLevel: appsync.FieldLogLevel.INFO,
-        retention: logs.RetentionDays.ONE_DAY,
-        role: this.apiLogRole,
+    this.metadataRestApi = new apigateway.RestApi(this, "MetadataRestApi", {
+      restApiName: "StreamingMusicMetadataApi",
+      defaultCorsPreflightOptions: {
+        allowOrigins: apigateway.Cors.ALL_ORIGINS,
+        allowMethods: apigateway.Cors.ALL_METHODS,
       },
-      authorizationConfig: {
-        defaultAuthorization: {
-          authorizationType: appsync.AuthorizationType.IAM,
-        },
-        additionalAuthorizationModes: [
-          {
-            authorizationType: appsync.AuthorizationType.USER_POOL,
-            userPoolConfig: {
-              userPool: props.authStack.userPool,
-            },
-          },
-        ],
+      deployOptions: {
+        stageName: props.apiPath,
+        loggingLevel: apigateway.MethodLoggingLevel.INFO,
+        dataTraceEnabled: true,
+        accessLogDestination: new apigateway.LogGroupLogDestination(
+          apiLogGroup,
+        ),
+        accessLogFormat: apigateway.AccessLogFormat.clf(),
+        throttlingRateLimit: 10,
+        throttlingBurstLimit: 10,
       },
-      xrayEnabled: false,
     });
 
-    // 認証ユーザはAPI呼び出し全権限付与
-    new iam.Policy(this, "ApiAccessPolicy", {
-      roles: [props.authStack.identityPool.authenticatedRole],
-      statements: [
-        new iam.PolicyStatement({
-          effect: iam.Effect.ALLOW,
-          actions: ["appsync:GraphQL"],
-          resources: [`${this.api.arn}/*`],
-        }),
-      ],
-    });
-    // ゲストユーザは読み取りQueryとSubscriptionのみ許可
-    new iam.Policy(this, "ApiAccessPolicyForGuest", {
-      roles: [props.authStack.identityPool.unauthenticatedRole],
-      statements: [
-        new iam.PolicyStatement({
-          effect: iam.Effect.ALLOW,
-          actions: ["appsync:GraphQL"],
-          resources: [`${this.api.arn}/*`],
-          conditions: {
-            "ForAllValues:StringEquals": {
-              "appsync:Field": [
-                "listMusicMetadata",
-                "onCreateMusicMetadata",
-                "onUpdateMusicMetadata",
-                "onRemoveMusicMetadata",
-              ],
-            },
-          },
-        }),
-      ],
-    });
-
-    // ---Lambda DataSource for presigned url ---
-    this.lambdaDataSource = this.api.addLambdaDataSource(
-      "LambdaDataSource",
-      props.lambdaStack.generateS3PresignedUrlFunction,
-    );
-
-    this.lambdaDataSource.createResolver("GenerateS3PresignedUrlResolver", {
-      typeName: "Query",
-      fieldName: "generateS3PresignedUrl",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    // ---Lambda DataSource for delete objects ---
-    const deleteDataSource = this.api.addLambdaDataSource(
-      "DeleteObjectsDataSource",
-      props.deleteObjectsStack.deleteObjectsFunction,
-    );
-
-    deleteDataSource.createResolver("DeleteS3FolderResolver", {
-      typeName: "Mutation",
-      fieldName: "deleteS3Folder",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    // ---Lambda DataSource for processing music ---
-    const processDataSource = this.api.addLambdaDataSource(
-      "ProcessMusicDataSource",
-      props.processMusicStack.processMusicFunction,
-    );
-
-    processDataSource.createResolver("ProcessMusicResolver", {
-      typeName: "Mutation",
-      fieldName: "processMusic",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    // --- DynamoDB DataSource ---
-    this.datasource = this.api.addDynamoDbDataSource(
-      "DynamoDbDataSource",
-      props.dbStack.musicMetadataTable,
+    const authorizer = new apigateway.CognitoUserPoolsAuthorizer(
+      this,
+      "MetadataAuthorizer",
       {
-        name: "DynamoDbDataSource",
+        cognitoUserPools: [props.authStack.userPool],
       },
     );
 
-    // --- create ---
-    this.datasource.createResolver("CreateMusicMetadataResolver", {
-      typeName: "Mutation",
-      fieldName: "createMusicMetadata",
-      requestMappingTemplate: appsync.MappingTemplate.dynamoDbPutItem(
-        // appsync.PrimaryKey.partition("id").auto(),
-        appsync.PrimaryKey.partition("id").is("input.id"),
-        appsync.Values.projecting("input"),
-      ),
-      responseMappingTemplate: appsync.MappingTemplate.dynamoDbResultItem(),
-    });
+    // metadata resource and methods (existing)
+    const musicResource =
+      this.metadataRestApi.root.addResource("musicMetadata");
 
-    // --- update ---
-    this.datasource.createResolver("UpdateMusicMetadataResolver", {
-      typeName: "Mutation",
-      fieldName: "updateMusicMetadata",
-      requestMappingTemplate: appsync.MappingTemplate.dynamoDbPutItem(
-        appsync.PrimaryKey.partition("id").is("input.id"),
-        appsync.Values.projecting("input"),
-      ),
-      responseMappingTemplate: appsync.MappingTemplate.dynamoDbResultItem(),
-    });
+    // GET (no auth)
+    musicResource.addMethod(
+      "GET",
+      new apigateway.LambdaIntegration(props.getMetadataFunction),
+      { authorizationType: apigateway.AuthorizationType.NONE },
+    );
 
-    // --- remove ---
-    this.datasource.createResolver("RemoveMusicMetadataResolver", {
-      typeName: "Mutation",
-      fieldName: "removeMusicMetadata",
-      requestMappingTemplate: appsync.MappingTemplate.dynamoDbDeleteItem(
-        "id",
-        "input.id",
-      ),
-      responseMappingTemplate: appsync.MappingTemplate.dynamoDbResultItem(),
-    });
+    // POST (authenticated)
+    musicResource.addMethod(
+      "POST",
+      new apigateway.LambdaIntegration(props.postMetadataFunction),
+      { authorizer, authorizationType: apigateway.AuthorizationType.COGNITO },
+    );
 
-    // --- list ---
-    this.datasource.createResolver("ListMusicMetadataResolver", {
-      typeName: "Query",
-      fieldName: "listMusicMetadata",
-      requestMappingTemplate: appsync.MappingTemplate.dynamoDbScanTable(),
-      responseMappingTemplate: appsync.MappingTemplate.dynamoDbResultList(),
-    });
+    const item = musicResource.addResource("{id}");
+    item.addMethod(
+      "DELETE",
+      new apigateway.LambdaIntegration(props.deleteMetadataFunction),
+      { authorizer, authorizationType: apigateway.AuthorizationType.COGNITO },
+    );
+
+    // utility endpoints previously exposed via AppSync
+    const genResource = this.metadataRestApi.root.addResource(
+      "generateS3PresignedUrl",
+    );
+    genResource.addMethod(
+      "POST",
+      new apigateway.LambdaIntegration(props.generateUrlFunction),
+      { authorizer, authorizationType: apigateway.AuthorizationType.COGNITO },
+    );
+
+    const deleteFolderResource =
+      this.metadataRestApi.root.addResource("deleteS3Folder");
+    deleteFolderResource.addMethod(
+      "POST",
+      new apigateway.LambdaIntegration(props.deleteObjectsFunction),
+      { authorizer, authorizationType: apigateway.AuthorizationType.COGNITO },
+    );
+
+    const processResource =
+      this.metadataRestApi.root.addResource("processMusic");
+    processResource.addMethod(
+      "POST",
+      new apigateway.LambdaIntegration(props.processMusicFunction),
+      { authorizer, authorizationType: apigateway.AuthorizationType.COGNITO },
+    );
   }
 }

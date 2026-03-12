@@ -5,10 +5,9 @@ import * as lambdaNodejs from "aws-cdk-lib/aws-lambda-nodejs";
 import * as logs from "aws-cdk-lib/aws-logs";
 import { Construct } from "constructs";
 import * as path from "path";
-import { HostingStack } from "../hosting-stack";
 
 interface DeleteObjectsStackProps extends cdk.StackProps {
-  hostingStack: HostingStack;
+  bucketName: string;
 }
 
 export class DeleteObjectsStack extends cdk.Stack {
@@ -38,7 +37,7 @@ export class DeleteObjectsStack extends cdk.Stack {
       ],
     });
 
-    const bucketArn = props.hostingStack.bucket.bucketArn;
+    const bucketArn = `arn:aws:s3:::${props.bucketName}`;
     this.deleteObjectsRole.addToPolicy(
       new iam.PolicyStatement({
         actions: ["s3:*"],
@@ -59,7 +58,7 @@ export class DeleteObjectsStack extends cdk.Stack {
         handler: "index.handler",
         entry: path.join(__dirname, "deleteObjects.ts"),
         environment: {
-          BUCKET_NAME: props.hostingStack.bucket.bucketName,
+          BUCKET_NAME: props.bucketName,
         },
       },
     );

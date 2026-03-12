@@ -7,7 +7,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
-import type { AppSyncResolverEvent, Context } from "aws-lambda";
+import type { APIGatewayProxyHandler } from "aws-lambda";
 import { execFile } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
@@ -26,16 +26,18 @@ interface ProcessMusicInput {
 
 const execFileAsync = promisify(execFile);
 
-export const handler = async (
-  event: AppSyncResolverEvent<{ input: ProcessMusicInput }>,
-  _context: Context,
-) => {
+export const handler: APIGatewayProxyHandler = async (event, _context) => {
   logger.logEventIfEnabled(event);
 
-  const key = event.arguments?.input?.key;
+  const body = event.body ? JSON.parse(event.body) : {};
+  const key = body.key;
   if (!key) {
     logger.error("Missing key in event", { event });
-    throw new Error("Missing key");
+    return {
+      statusCode: 400,
+      headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*" },
+      body: "Missing key",
+    };
   }
 
   const folder = path.dirname(key);
@@ -108,5 +110,9 @@ export const handler = async (
   }
 
   logger.info("Processing complete", { manifestKey });
-  return { manifestPath: manifestKey };
+  return {
+    statusCode: 200,
+    headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*" },
+    body: JSON.stringify({ manifestPath: manifestKey }),
+  };
 };

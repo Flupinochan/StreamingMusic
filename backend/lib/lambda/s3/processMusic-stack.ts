@@ -5,10 +5,9 @@ import * as lambdaNodejs from "aws-cdk-lib/aws-lambda-nodejs";
 import * as logs from "aws-cdk-lib/aws-logs";
 import { Construct } from "constructs";
 import * as path from "path";
-import { HostingStack } from "../hosting-stack";
 
 interface ProcessMusicStackProps extends cdk.StackProps {
-  hostingStack: HostingStack;
+  bucketName: string;
 }
 
 export class ProcessMusicStack extends cdk.Stack {
@@ -22,7 +21,7 @@ export class ProcessMusicStack extends cdk.Stack {
 
     // layer containing ffmpeg binary
     this.ffmpegLayer = new lambda.LayerVersion(this, "FfmpegLayer", {
-      code: lambda.Code.fromAsset(path.join(__dirname, "ffmpeg-layer")),
+      code: lambda.Code.fromAsset(path.join(__dirname, "../ffmpeg-layer")),
       compatibleRuntimes: [lambda.Runtime.NODEJS_24_X],
       description: "FFmpeg binary for music processing",
     });
@@ -46,7 +45,7 @@ export class ProcessMusicStack extends cdk.Stack {
       ],
     });
 
-    const bucketArn = props.hostingStack.bucket.bucketArn;
+    const bucketArn = `arn:aws:s3:::${props.bucketName}`;
     this.processMusicRole.addToPolicy(
       new iam.PolicyStatement({
         actions: ["s3:*"],
@@ -60,14 +59,14 @@ export class ProcessMusicStack extends cdk.Stack {
       {
         functionName: `${cdk.Stack.of(this).stackName.toLocaleLowerCase()}-processMusic`,
         runtime: lambda.Runtime.NODEJS_24_X,
-        timeout: cdk.Duration.seconds(300), // might take longer
+        timeout: cdk.Duration.seconds(300),
         memorySize: 1024,
         role: this.processMusicRole,
         logGroup: this.processMusicLogGroup,
         handler: "index.handler",
         entry: path.join(__dirname, "processMusic.ts"),
         environment: {
-          BUCKET_NAME: props.hostingStack.bucket.bucketName,
+          BUCKET_NAME: props.bucketName,
         },
         layers: [this.ffmpegLayer],
       },

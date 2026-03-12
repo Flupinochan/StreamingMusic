@@ -5,15 +5,19 @@ import { AuthStack } from "../lib/auth-stack";
 import { DbStack } from "../lib/db-stack";
 import { getEnvConfig } from "../lib/env";
 import { HostingStack } from "../lib/hosting-stack";
-import { DeleteObjectsStack } from "../lib/lambda/deleteObjects-stack";
-import { GenerateUrlStack } from "../lib/lambda/generateUrl-stack";
-import { ProcessMusicStack } from "../lib/lambda/processMusic-stack";
+import { DeleteMetadataStack } from "../lib/lambda/dynamodb/deleteMetadata-stack";
+import { GetMetadataStack } from "../lib/lambda/dynamodb/getMetadata-stack";
+import { PostMetadataStack } from "../lib/lambda/dynamodb/postMetadata-stack";
+import { DeleteObjectsStack } from "../lib/lambda/s3/deleteObjects-stack";
+import { GenerateUrlStack } from "../lib/lambda/s3/generateUrl-stack";
+import { ProcessMusicStack } from "../lib/lambda/s3/processMusic-stack";
 import { PipelineStack } from "../lib/pipeline-stack";
 
 const app = new cdk.App();
 const envName =
   (app.node.tryGetContext("env") as string) || process.env.CDK_ENV || "prod";
 const cfg = getEnvConfig(envName);
+const apiPath = "api";
 
 const baseName = "StreamMusic";
 // 後からdevを追加したため互換性のためprodにはenv名を付けていない
@@ -25,29 +29,25 @@ const hostingStack = new HostingStack(app, `${prefix}HostingStack`, {
   certificateArn: cfg.certificateArnParam,
 });
 
-new PipelineStack(app, `${prefix}PipelineStack`, {
-  hostingStack,
-  githubConnectionArn: cfg.githubConnectionArnParam,
-  repoName: cfg.repoName,
-  branchName: cfg.branchName,
-  envName: cfg.name,
-});
+// S3 バケット名はホスティングスタック名に "-bucket" を付けたもの（小文字）
+const hostingStackNameLower = `${prefix}HostingStack`.toLowerCase();
+const bucketName = `${hostingStackNameLower}-bucket`;
 
 const authStack = new AuthStack(app, `${prefix}AuthStack`, {
-  hostingStack,
+  bucketName,
 });
 
 const dbStack = new DbStack(app, `${prefix}DbStack`, {});
 
 const generateUrlStack = new GenerateUrlStack(app, `${prefix}LambdaStack`, {
-  hostingStack,
+  bucketName,
 });
 
 const deleteObjectsStack = new DeleteObjectsStack(
   app,
   `${prefix}DeleteObjectsStack`,
   {
-    hostingStack,
+    bucketName,
   },
 );
 
@@ -55,14 +55,52 @@ const processMusicStack = new ProcessMusicStack(
   app,
   `${prefix}ProcessMusicStack`,
   {
-    hostingStack,
+    bucketName,
   },
 );
 
-new ApiStack(app, `${prefix}ApiStack`, {
+const getMetadataStack = new GetMetadataStack(
+  app,
+  `${prefix}GetMetadataStack`,
+  {
+    dbStack,
+  },
+);
+
+const postMetadataStack = new PostMetadataStack(
+  app,
+  `${prefix}PostMetadataStack`,
+  {
+    dbStack,
+  },
+);
+
+const deleteMetadataStack = new DeleteMetadataStack(
+  app,
+  `${prefix}DeleteMetadataStack`,
+  {
+    dbStack,
+  },
+);
+
+const apiStack = new ApiStack(app, `${prefix}ApiStack`, {
   authStack,
-  lambdaStack: generateUrlStack,
-  deleteObjectsStack,
-  processMusicStack,
-  dbStack,
+  getMetadataFunction: getMetadataStack.getMetadataFunction,
+  postMetadataFunction: postMetadataStack.postMetadataFunction,
+  deleteMetadataFunction: deleteMetadataStack.deleteMetadataFunction,
+  generateUrlFunction: generateUrlStack.generateS3PresignedUrlFunction,
+  deleteObjectsFunction: deleteObjectsStack.deleteObjectsFunction,
+  processMusicFunction: processMusicStack.processMusicFunction,
+  apiPath,
+});
+
+// register API as an origin on CloudFront
+hostingStack.addApiOrigin(apiStack.metadataRestApi, apiPath);
+
+new PipelineStack(app, `${prefix}PipelineStack`, {
+  hostingStack,
+  githubConnectionArn: cfg.githubConnectionArnParam,
+  repoName: cfg.repoName,
+  branchName: cfg.branchName,
+  envName: cfg.name,
 });

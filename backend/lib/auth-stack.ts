@@ -2,10 +2,9 @@ import * as cdk from "aws-cdk-lib";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as identityPool from "aws-cdk-lib/aws-cognito-identitypool";
 import { Construct } from "constructs";
-import { HostingStack } from "./hosting-stack";
 
 interface AuthStackProps extends cdk.StackProps {
-  hostingStack: HostingStack;
+  bucketName: string;
 }
 
 export class AuthStack extends cdk.Stack {
@@ -59,14 +58,11 @@ export class AuthStack extends cdk.Stack {
         ],
       },
     });
-    // API側でも定義しているため注意
+    const bucketArn = `arn:aws:s3:::${props.bucketName}`;
     this.identityPool.authenticatedRole.addToPrincipalPolicy(
       new cdk.aws_iam.PolicyStatement({
         actions: ["s3:*"],
-        resources: [
-          props.hostingStack.bucket.bucketArn,
-          `${props.hostingStack.bucket.bucketArn}/*`,
-        ],
+        resources: [bucketArn, `${bucketArn}/*`],
       }),
     );
   }

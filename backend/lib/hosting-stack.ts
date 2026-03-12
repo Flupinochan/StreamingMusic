@@ -1,4 +1,5 @@
 import { RemovalPolicy } from "aws-cdk-lib";
+import * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
@@ -93,6 +94,22 @@ export class HostingStack extends cdk.Stack {
           ttl: cdk.Duration.minutes(0),
         },
       ],
+    });
+  }
+
+  public addApiOrigin(api: apigateway.RestApi, apiPath: string) {
+    const url = api.url;
+    const domain = cdk.Fn.select(2, cdk.Fn.split("/", url));
+    const origin = new origins.HttpOrigin(domain, {
+      protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
+    });
+
+    this.distribution.addBehavior(`/${apiPath}/*`, origin, {
+      allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+      cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+      viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      originRequestPolicy:
+        cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
     });
   }
 }

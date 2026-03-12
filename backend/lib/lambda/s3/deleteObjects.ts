@@ -6,7 +6,7 @@ import {
   paginateListObjectsV2,
   S3Client,
 } from "@aws-sdk/client-s3";
-import type { AppSyncResolverEvent, Context } from "aws-lambda";
+import type { APIGatewayProxyHandler } from "aws-lambda";
 
 const BUCKET_NAME = process.env.BUCKET_NAME!;
 
@@ -17,16 +17,18 @@ interface DeleteS3FolderInput {
   prefix: string;
 }
 
-export const handler = async (
-  event: AppSyncResolverEvent<{ input: DeleteS3FolderInput }>,
-  _context: Context,
-) => {
+export const handler: APIGatewayProxyHandler = async (event, _context) => {
   logger.logEventIfEnabled(event);
 
-  const prefix = event.arguments?.input?.prefix;
+  const body = event.body ? JSON.parse(event.body) : {};
+  const prefix = body.prefix;
   if (!prefix) {
     logger.error("Missing prefix in event", { event });
-    throw new Error("Missing prefix");
+    return {
+      statusCode: 400,
+      headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*" },
+      body: "Missing prefix",
+    };
   }
 
   logger.info("Deleting objects with prefix", { prefix });
@@ -45,7 +47,11 @@ export const handler = async (
 
   if (objectKeys.length === 0) {
     logger.info("No objects found for prefix", { prefix });
-    return { deletedCount: 0 };
+    return {
+      statusCode: 200,
+      headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*" },
+      body: JSON.stringify({ deletedCount: 0 }),
+    };
   }
 
   // delete in chunks of 1000
@@ -70,5 +76,9 @@ export const handler = async (
   );
 
   logger.info("Deleted objects completed", { deletedCount, prefix });
-  return { deletedCount };
+  return {
+    statusCode: 200,
+    headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*" },
+    body: JSON.stringify({ deletedCount }),
+  };
 };

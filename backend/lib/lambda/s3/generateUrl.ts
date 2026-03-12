@@ -3,7 +3,7 @@ process.env.POWERTOOLS_LOGGER_LOG_EVENT = "true";
 import { Logger } from "@aws-lambda-powertools/logger";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import type { AppSyncResolverEvent, Context } from "aws-lambda";
+import type { APIGatewayProxyHandler } from "aws-lambda";
 
 const BUCKET_NAME = process.env.BUCKET_NAME!;
 
@@ -14,16 +14,18 @@ interface GenerateS3PresignedUrlInput {
   key: string;
 }
 
-export const handler = async (
-  event: AppSyncResolverEvent<{ input: GenerateS3PresignedUrlInput }>,
-  _context: Context,
-) => {
+export const handler: APIGatewayProxyHandler = async (event, _context) => {
   logger.logEventIfEnabled(event);
 
-  const key = event.arguments?.input?.key;
+  const body = event.body ? JSON.parse(event.body) : {};
+  const key = body.key;
   if (!key) {
     logger.error("Missing key in event", { event });
-    throw new Error("Missing key");
+    return {
+      statusCode: 400,
+      headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*" },
+      body: "Missing key",
+    };
   }
 
   logger.info("Generating S3 presigned URL", { key });
@@ -38,5 +40,9 @@ export const handler = async (
 
   logger.info("Generated S3 presigned URL", { url });
 
-  return { url };
+  return {
+    statusCode: 200,
+    headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*" },
+    body: JSON.stringify({ url }),
+  };
 };
