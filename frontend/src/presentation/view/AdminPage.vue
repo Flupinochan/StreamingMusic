@@ -49,6 +49,7 @@
 </template>
 
 <script setup lang="ts">
+import { initAmplify } from '@/infrastructure/amplify'
 import { useMusicStore } from '@/presentation/stores/useMusicStore'
 import MusicListPlayer from '@/presentation/view/components/MusicListPlayer.vue'
 import { getCurrentUser } from 'aws-amplify/auth'
@@ -188,6 +189,8 @@ const handleKeydown = (e: KeyboardEvent): void => {
 }
 
 onMounted(async () => {
+  initAmplify()
+
   window.addEventListener('keydown', handleKeydown)
 
   try {

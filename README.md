@@ -13,14 +13,6 @@ npm install xxx --workspace frontend
 npm install xxx --workspace backend
 ```
 
-## Generate GraphQL Schema
-
-GraphQL更新時に必要
-
-```bash
-npm run codegen
-```
-
 ## Deploy
 
 初回デプロイ時

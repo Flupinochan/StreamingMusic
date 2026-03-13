@@ -2,36 +2,15 @@ import type { MusicMetadata } from '@/domain/entities/musicMetadata'
 import type { MusicMetadataRepository } from '@/domain/repositories/musicMetadataRepository'
 import type { MusicId } from '@/domain/value_objects/musicId'
 import { musicMetadataDtoToMusicMetadata } from '@/infrastructure/repositories/mapper/musicMetadataMapper'
-import { MusicMetadataRepositoryAmplify } from '@/infrastructure/repositories/musicMetadataRepositoryAppSync'
+import { MusicMetadataRepositoryRest } from '@/infrastructure/repositories/musicMetadataRepositoryRest'
 import { toCreateMusicMetadataRequestDto } from './mapper/musicMetadataApiMapper'
 
 export class MusicMetadataRepositoryImpl implements MusicMetadataRepository {
-  private readonly repo: MusicMetadataRepositoryAmplify
+  private readonly repo: MusicMetadataRepositoryRest
 
-  constructor(repo: MusicMetadataRepositoryAmplify) {
+  constructor(repo: MusicMetadataRepositoryRest) {
     this.repo = repo
   }
-
-  // observableは重いため現状は利用しない
-  // observeMusicMetadata(): Observable<MusicMetadata[]> {
-  //   const source = this.repo.observeMusicMetadata()
-
-  //   return {
-  //     subscribe(observer: Observer<MusicMetadata[]>): Subscription {
-  //       const sub = source.subscribe({
-  //         next: (dtos) => {
-  //           const entities = dtos.map(musicMetadataDtoToMusicMetadata)
-  //           observer.next(entities)
-  //         },
-  //         error: (e) => observer.error?.(e),
-  //       })
-
-  //       return {
-  //         unsubscribe: (): void => sub.unsubscribe(),
-  //       }
-  //     },
-  //   }
-  // }
 
   async listMusicMetadata(): Promise<MusicMetadata[]> {
     const items = await this.repo.listMusicMetadata()
@@ -44,6 +23,6 @@ export class MusicMetadataRepositoryImpl implements MusicMetadataRepository {
   }
 
   async removeMusicMetadata(id: MusicId): Promise<void> {
-    await this.repo.removeMusicMetadata({ id: id.value })
+    await this.repo.removeMusicMetadata(id.value)
   }
 }

@@ -1,26 +1,64 @@
-import { generateClient, type GraphQLResult } from 'aws-amplify/api'
+// シンプルな REST API クライアント
+// 認証トークンは外部から provider を設定できる仕組みを用意
 
-// - iam: Authorization: AWS4-HMAC-SHA256 Credential=... つまりAWS IAM Credentialsを利用した認証
-//   - 割り当てられたIAM Roleに基づいてアクセス権限が決まる
-// - userPool: Authorization: Bearer <JWT> つまりJWTを利用した認証
-//   - IAM Roleは利用されない。サーバ側で独自にJWTを検証してアクセス権限を決める必要がある
-//   - (主にAWS以外のリソースへのアクセス権限を管理したい場合)
-// 認証ユーザはUserPoolで管理されているユーザに基づいてJWTが発行されるが
-// GuestユーザはUserPoolで管理されていないためJWTが発行されない
-// したがってGuestユーザはuserPool認証を利用できず、iam認証を利用する必要がある
-// なお、認証ユーザもiam認証は可能なため、Guestユーザを扱う場合はiam認証で統一する方がシンプルになる
-export type GraphqlAuthMode = 'iam' | 'userPool'
+import { getOwnUrl } from '@/presentation/utils/domain'
 
-export interface GraphqlOptions {
-  query: string
-  variables?: Record<string, unknown>
-  authMode?: GraphqlAuthMode
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+
+export interface ApiRequestOptions {
+  method?: HttpMethod
+  body?: unknown
+  headers?: Record<string, string>
 }
 
 export interface ApiClient {
-  graphql<T = unknown>(opts: GraphqlOptions): Promise<GraphQLResult<T>>
+  request<T = unknown>(path: string, opts?: ApiRequestOptions): Promise<T>
+  get<T = unknown>(path: string): Promise<T>
+  post<T = unknown>(path: string, body?: unknown): Promise<T>
+  delete<T = unknown>(path: string): Promise<T>
+}
+
+export type TokenProvider = () => Promise<string | undefined>
+
+let tokenProvider: TokenProvider = async () => undefined
+
+export function setTokenProvider(provider: TokenProvider): void {
+  tokenProvider = provider
+}
+
+function handleResponse<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}: ${res.statusText}`)
+  }
+  return res.json() as Promise<T>
 }
 
 export function makeApiClient(): ApiClient {
-  return generateClient({ authMode: 'iam' }) as unknown as ApiClient
+  const baseUrl = getOwnUrl() + '/api'
+
+  async function request<T = unknown>(path: string, opts: ApiRequestOptions = {}): Promise<T> {
+    const url = `${baseUrl}${path}`
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...opts.headers,
+    }
+    const token = await tokenProvider()
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+
+    const res = await fetch(url, {
+      method: opts.method ?? 'GET',
+      body: opts.body != null ? JSON.stringify(opts.body) : undefined,
+      headers,
+    })
+    return handleResponse<T>(res)
+  }
+
+  return {
+    request,
+    get: <T>(path: string) => request<T>(path, { method: 'GET' }),
+    post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body }),
+    delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  }
 }

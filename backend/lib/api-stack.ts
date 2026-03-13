@@ -13,6 +13,7 @@ interface ApiStackProps extends cdk.StackProps {
   deleteObjectsFunction: lambda.Function;
   processMusicFunction: lambda.Function;
   apiPath: string;
+  domainName: string;
 }
 
 export class ApiStack extends cdk.Stack {
@@ -32,8 +33,15 @@ export class ApiStack extends cdk.Stack {
     this.metadataRestApi = new apigateway.RestApi(this, "MetadataRestApi", {
       restApiName: "StreamingMusicMetadataApi",
       defaultCorsPreflightOptions: {
-        allowOrigins: apigateway.Cors.ALL_ORIGINS,
+        allowOrigins: [`https://${props.domainName}`, "http://localhost:5173"],
         allowMethods: apigateway.Cors.ALL_METHODS,
+        allowHeaders: [
+          "Content-Type",
+          "X-Amz-Date",
+          "Authorization",
+          "X-Api-Key",
+          "X-Amz-Security-Token",
+        ],
       },
       deployOptions: {
         stageName: props.apiPath,
@@ -46,6 +54,35 @@ export class ApiStack extends cdk.Stack {
         throttlingRateLimit: 10,
         throttlingBurstLimit: 10,
       },
+    });
+
+    const responseHeaders = {
+      "Access-Control-Allow-Origin": "'*'",
+      "Access-Control-Allow-Methods": "'*'",
+      "Access-Control-Allow-Headers":
+        "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+    };
+
+    // 200はLambda側でCORSヘッダーを付与しているため、API Gateway側では付与しない
+    // 200以外のレスポンスにはCORSヘッダーを付与する
+    this.metadataRestApi.addGatewayResponse("UnauthorizedResponse", {
+      type: apigateway.ResponseType.UNAUTHORIZED,
+      responseHeaders,
+    });
+
+    this.metadataRestApi.addGatewayResponse("AccessDeniedResponse", {
+      type: apigateway.ResponseType.ACCESS_DENIED,
+      responseHeaders,
+    });
+
+    this.metadataRestApi.addGatewayResponse("Default4xxResponse", {
+      type: apigateway.ResponseType.DEFAULT_4XX,
+      responseHeaders,
+    });
+
+    this.metadataRestApi.addGatewayResponse("Default5xxResponse", {
+      type: apigateway.ResponseType.DEFAULT_5XX,
+      responseHeaders,
     });
 
     const authorizer = new apigateway.CognitoUserPoolsAuthorizer(

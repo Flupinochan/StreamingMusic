@@ -4,12 +4,12 @@ import type { MusicFolderPath } from '@/domain/value_objects/path/musicFolderPat
 import type { MusicPath } from '@/domain/value_objects/path/musicPath'
 import { createUploadMusicDto } from '@/infrastructure/repositories/mapper/musicApiMapper'
 import type { UploadRequestDto } from './dto/uploadRequestDto'
-import { MusicDataRepositoryAmplify } from './musicDataRepositoryAmplify'
+import { MusicDataRepositoryRest } from './musicDataRepositoryRest'
 
 export class MusicDataRepositoryImpl implements MusicDataRepository {
-  private readonly repo: MusicDataRepositoryAmplify
+  private readonly repo: MusicDataRepositoryRest
 
-  constructor(repo: MusicDataRepositoryAmplify) {
+  constructor(repo: MusicDataRepositoryRest) {
     this.repo = repo
   }
 

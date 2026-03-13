@@ -10,11 +10,9 @@ import { visualizer } from 'rollup-plugin-visualizer'
 import vuetify from 'vite-plugin-vuetify'
 
 const buildHash = crypto.randomBytes(8).toString('hex')
+process.env.VITE_BUILD_HASH = buildHash
 
 export default defineConfig({
-  define: {
-    __BUILD_HASH__: JSON.stringify(buildHash),
-  },
   plugins: [
     vue(),
     vueDevTools(),
@@ -149,10 +147,10 @@ export default defineConfig({
         sourcemap: true,
       },
       // 開発環境でService Workerを有効化
-      devOptions: {
-        enabled: true,
-        type: 'module',
-      },
+      // devOptions: {
+      //   enabled: true,
+      //   type: 'module',
+      // },
     }),
   ],
   resolve: {

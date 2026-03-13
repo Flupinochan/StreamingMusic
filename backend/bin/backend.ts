@@ -92,6 +92,7 @@ const apiStack = new ApiStack(app, `${prefix}ApiStack`, {
   deleteObjectsFunction: deleteObjectsStack.deleteObjectsFunction,
   processMusicFunction: processMusicStack.processMusicFunction,
   apiPath,
+  domainName: cfg.domainName,
 });
 
 // register API as an origin on CloudFront

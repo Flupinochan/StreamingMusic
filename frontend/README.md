@@ -149,16 +149,15 @@ value object classはバリデーションメソッド等があるため、infer
 ```
 ```
 
-## AppSync型生成
+## APIについて
 
-AppSyncのコンソール画面を参考
+バックエンドは AppSync から API Gateway / REST へ移行しました。フロントエンドでは `fetch` を使って
+相対パス `/api` に対して HTTP リクエストを送ります。以下のように `frontend/src/infrastructure/apiClient.ts`
+で汎用クライアントを定義し、リポジトリ層がそれを利用してエンドポイントを呼び出します。
 
-```bash
-# node v24に対応していないため
-nvm use 20.20.1
-
-npx @aws-amplify/cli codegen models `
---model-schema ./backend/lib/graphql/schema.graphql `
---target typescript `
---output-dir ./frontend/src/domain/value_objects/graphql
+```ts
+// 例: GET /musicMetadata
+const items = await apiClient.get<MusicMetadata[]>('/musicMetadata')
+// 例: POST /generateS3PresignedUrl
+const { url } = await apiClient.post<{url:string}>('/generateS3PresignedUrl', { key })
 ```

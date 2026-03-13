@@ -9,13 +9,14 @@ import { registerRoute } from 'workbox-routing'
 import { CacheFirst } from 'workbox-strategies'
 
 declare let self: ServiceWorkerGlobalScope
-declare const __BUILD_HASH__: string
-const POST_CACHE_NAME = `music-metalmental-post-${__BUILD_HASH__}`
+const BUILD_HASH = import.meta.env.VITE_BUILD_HASH
+
+const POST_CACHE_NAME = `music-metalmental-post-${BUILD_HASH}`
 
 // precacheおよびruntime cache名の設定
 setCacheNameDetails({
   prefix: 'music-metalmental',
-  suffix: __BUILD_HASH__,
+  suffix: BUILD_HASH,
   precache: 'precache',
   runtime: 'runtime',
 })
