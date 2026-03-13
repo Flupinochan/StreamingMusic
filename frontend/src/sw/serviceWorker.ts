@@ -6,7 +6,7 @@ import { cacheNames, clientsClaim, setCacheNameDetails } from 'workbox-core'
 import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching'
 import { RangeRequestsPlugin } from 'workbox-range-requests'
 import { registerRoute } from 'workbox-routing'
-import { CacheFirst } from 'workbox-strategies'
+import { CacheFirst, NetworkFirst } from 'workbox-strategies'
 
 declare let self: ServiceWorkerGlobalScope
 const BUILD_HASH = import.meta.env.VITE_BUILD_HASH
@@ -34,6 +34,20 @@ precacheAndRoute(self.__WB_MANIFEST)
 /////////////////////////////
 
 /// runtime cache設定
+// /api/musicMetadata の GET は Network First (最新データ優先)
+registerRoute(
+  ({ url, request }) => request.method === 'GET' && url.pathname === '/api/musicMetadata',
+  new NetworkFirst({
+    cacheName: cacheNames.runtime,
+    plugins: [
+      new CacheableResponsePlugin({
+        statuses: [0, 200],
+      }),
+    ],
+  }),
+  'GET',
+)
+
 // GETは全てキャッシュ
 registerRoute(
   () => true,
