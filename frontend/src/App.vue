@@ -28,12 +28,10 @@
 </template>
 
 <script setup lang="ts">
-import { useMusicStore } from '@/presentation/stores/useMusicStore'
 import MusicPlayerFooter from '@/presentation/view/components/MusicPlayerFooter.vue'
 import { useRegisterSW } from 'virtual:pwa-register/vue'
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onUnmounted, ref } from 'vue'
 import { useMusicPlayerStore } from './presentation/stores/useMusicPlayerStore'
-import { loadHls } from './presentation/utils/hls'
 
 const snackbar = ref(false)
 const BUILD_HASH = import.meta.env.VITE_BUILD_HASH
@@ -63,13 +61,7 @@ function onClose() {
   snackbar.value = false
 }
 
-const musicStore = useMusicStore()
 const musicPlayerStore = useMusicPlayerStore()
-
-onMounted(() => {
-  musicStore.listMusic()
-  requestIdleCallback(() => loadHls(), { timeout: 3000 })
-})
 
 onUnmounted(() => {
   musicPlayerStore.disposeEngine()

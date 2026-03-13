@@ -56,8 +56,8 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
   // HLS のマニフェスト解析完了を待つ Promise
   let hlsReady: Promise<void> | undefined
   let audioEndedListener: (() => void) | undefined
-  // seek用タイマーID
-  let tickId: number | undefined
+  // audio timeupdate イベントリスナー
+  let audioTimeupdateListener: (() => void) | undefined
 
   // 表示用ロジック --------------------------------------------------------------
   const isPlaying = (): boolean => playerState.value.status === 'playing'
@@ -103,11 +103,8 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
   // 再生位置(seek)用ロジック -------------------------------------------------------
   const getSeek = (): void => {
     if (!audio) return
-    playerState.value = {
-      ...playerState.value,
-      positionSeconds: audio.currentTime,
-      musicSeconds: Number.isNaN(audio.duration) ? 0 : audio.duration,
-    }
+    playerState.value.positionSeconds = audio.currentTime
+    playerState.value.musicSeconds = Number.isNaN(audio.duration) ? 0 : audio.duration
   }
 
   const setSeek = (seconds: number): void => {
@@ -115,18 +112,6 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
       audio.currentTime = Math.max(0, seconds)
     }
     getSeek()
-  }
-
-  // howlerから定期的に再生位置を取得するタイマー
-  const startTick = (): void => {
-    if (tickId !== undefined) return
-    tickId = window.setInterval(getSeek, 1000)
-  }
-
-  const clearTick = (): void => {
-    if (tickId === undefined) return
-    clearInterval(tickId)
-    tickId = undefined
   }
 
   // トラック管理 ----------------------------------------------------------
@@ -144,6 +129,11 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
     // HTMLAudioElement(audioタグ)を生成
     audio = new Audio()
     audio.preload = 'auto'
+
+    // timeupdate イベントで現在再生位置を追跡
+    audioTimeupdateListener = () => getSeek()
+    audio.addEventListener('timeupdate', audioTimeupdateListener)
+
     // HLS ソースを前提として扱う
     const srcStr = manifestUrl.toString()
 
@@ -264,7 +254,10 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
       audioEndedListener = undefined
     }
 
-    clearTick()
+    if (audioTimeupdateListener) {
+      audio.removeEventListener('timeupdate', audioTimeupdateListener)
+      audioTimeupdateListener = undefined
+    }
 
     audio.pause()
     audio.removeAttribute('src')
@@ -306,14 +299,11 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
         console.error('audio.play() failed', err)
       }
     }
-
-    startTick()
   }
 
   const pause = (): void => {
     playerState.value = { ...playerState.value, status: 'paused' }
     audio?.pause()
-    clearTick()
   }
 
   const stop = (): void => {
@@ -322,7 +312,6 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
       audio.pause()
       audio.currentTime = 0
     }
-    clearTick()
     setSeek(0)
   }
 

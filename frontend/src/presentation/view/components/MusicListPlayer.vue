@@ -50,10 +50,21 @@
 import { useMusicPlayerStore } from '@/presentation/stores/useMusicPlayerStore'
 import { useMusicStore } from '@/presentation/stores/useMusicStore'
 import type { MusicMetadataDto } from '@/use_cases/musicMetadataDto'
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 
 const musicStore = useMusicStore()
 const musicPlayerStore = useMusicPlayerStore()
+
+onMounted(() => {
+  requestIdleCallback(
+    () => {
+      if (musicPlayerStore.tracks.length === 0) {
+        musicStore.listMusic()
+      }
+    },
+    { timeout: 3000 },
+  )
+})
 
 const selectedIds = computed<string[]>({
   get() {
