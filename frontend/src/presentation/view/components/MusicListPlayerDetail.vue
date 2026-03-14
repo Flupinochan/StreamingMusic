@@ -2,7 +2,7 @@
   <div
     class="container-fluid relative-container d-flex align-center justify-center"
     :style="{
-      backgroundImage: `url(${musicPlayerStore.playerState.url}${musicPlayerStore.playerState.artworkThumbnailImagePath})`,
+      backgroundImage: `url(${getOwnUrl()}/${musicPlayerStore.playerState.artworkThumbnailImagePath})`,
       backgroundColor: 'rgba(0,0,0,0.8)',
       backgroundSize: 'cover',
       backgroundPosition: 'center center',
@@ -12,7 +12,7 @@
   >
     <div class="glass-overlay"></div>
     <v-img
-      :src="`${musicPlayerStore.playerState.url}${musicPlayerStore.playerState.artworkImagePath}`"
+      :src="`${getOwnUrl()}/${musicPlayerStore.playerState.artworkImagePath}`"
       style="view-transition-name: artwork"
       class="clickable"
       contain
@@ -33,6 +33,7 @@
 
 <script setup lang="ts">
 import { useMusicPlayerStore } from '@/presentation/stores/useMusicPlayerStore'
+import { getOwnUrl } from '@/presentation/utils/domain'
 import type { DetailProps } from '@/router'
 import { watch } from 'vue'
 import { useRouter } from 'vue-router'

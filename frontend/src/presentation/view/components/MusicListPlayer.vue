@@ -21,7 +21,7 @@
       >
         <template #prepend>
           <v-img
-            :src="`${musicPlayerStore.playerState.url}${music.artworkThumbnailImagePath}`"
+            :src="`${getOwnUrl()}/${music.artworkThumbnailImagePath}`"
             style="view-transition-name: artwork"
             class="me-4"
             width="56"
@@ -49,6 +49,7 @@
 <script setup lang="ts">
 import { useMusicPlayerStore } from '@/presentation/stores/useMusicPlayerStore'
 import { useMusicStore } from '@/presentation/stores/useMusicStore'
+import { getOwnUrl } from '@/presentation/utils/domain'
 import type { MusicMetadataDto } from '@/use_cases/musicMetadataDto'
 import { computed, onMounted } from 'vue'
 

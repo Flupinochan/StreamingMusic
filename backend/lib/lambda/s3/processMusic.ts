@@ -86,10 +86,31 @@ const lambdaHandler = async (
   // run ffmpeg to generate HLS segments and manifest in /tmp
   const manifest = "/tmp/index.m3u8";
   try {
+    const tmpAac = "/tmp/converted.m4a";
+    const ext = path.extname(tmpFile).toLowerCase();
+
+    if (ext !== ".m4a") {
+      // Step 1: MP3 → AAC (m4a)
+      // hls用のAACでないとバグるため
+      await execFileAsync(FFMPEG_PATH, [
+        "-i",
+        tmpFile,
+        "-vn",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "256k",
+        "-ar",
+        "48000",
+        tmpAac,
+      ]);
+    }
+
+    // Step 2: AAC → HLS
     await execFileAsync(FFMPEG_PATH, [
       "-i",
-      tmpFile,
-      "-codec",
+      ext === ".m4a" ? tmpFile : tmpAac,
+      "-c:a",
       "copy",
       "-f",
       "hls",
@@ -97,10 +118,17 @@ const lambdaHandler = async (
       "10",
       "-hls_list_size",
       "0",
+      "-hls_master_name",
+      "index.m3u8",
       "-hls_segment_filename",
       "/tmp/seg%03d.ts",
       manifest,
     ]);
+
+    // hls用オプションドキュメント
+    // https://ffmpeg.org/ffmpeg-formats.html#hls-2
+    // hls_base_url: manifest内のsegmentファイルを絶対パスにできる (今回はmanifestとsegmentを同じS3フォルダに置くため指定不要)
+    // hls_list_size = 0: manifestに全てのsegmentファイル名を記載 (vodでは0に強制されるため指定不要)
   } catch (err) {
     logger.error("ffmpeg failed", { err });
     throw err;

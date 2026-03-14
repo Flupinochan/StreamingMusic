@@ -2,19 +2,18 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 import type { MusicMetadataDto } from '@/use_cases/musicMetadataDto'
-import type Hls from 'hls.js'
+import { HlsPlayerEngine } from '../service/player/hlsPlayerEngine'
+import type { PlayerEngine } from '../service/player/playerEngine'
 import { getOwnUrl } from '../utils/domain'
-import { HlsClass, HlsEvents, loadHls } from '../utils/hls'
 import { formatSecondsToMMSS } from '../utils/time'
 
 export type PlayerStatus = 'stopped' | 'playing' | 'paused'
 export type RepeatMode = 'none' | 'one' | 'all'
 
-// dtoの変数名と一致させる必要があるため注意
+// ...tracksのような使い方をしているため、dtoの変数名と一致させる必要があるため注意
 export interface PlayerState {
   musicId: string | undefined
   musicTitle: string | undefined
-  url: URL
   manifestPath: string | undefined
   artworkImagePath: string | undefined
   artworkThumbnailImagePath: string | undefined
@@ -34,7 +33,6 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
   const playerState = ref<PlayerState>({
     musicId: undefined,
     musicTitle: undefined,
-    url: new URL(getOwnUrl()),
     manifestPath: undefined,
     artworkImagePath: undefined,
     artworkThumbnailImagePath: undefined,
@@ -53,16 +51,9 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
 
   // 内部データ --------------------------------------------------------------
   // queue配列の中で現在再生している曲のindex (-1の場合は再生する曲がない状態)
-  let index = -1
+  let currentIndex = -1
   let history: number[] = []
-  // HTMLMediaElementを継承している
-  let audio: HTMLAudioElement | undefined
-  let hls: Hls | undefined
-  // HLS のマニフェスト解析完了を待つ Promise
-  let hlsReady: Promise<void> | undefined
-  let audioEndedListener: (() => void) | undefined
-  // audio timeupdate イベントリスナー
-  let audioTimeupdateListener: (() => void) | undefined
+  let engine: PlayerEngine | undefined
 
   // 表示用ロジック --------------------------------------------------------------
   const isPlaying = (): boolean => playerState.value.status === 'playing'
@@ -71,7 +62,6 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
     playerState.value.musicId !== undefined && calcNextIndex() !== undefined
   const canPrevious = (): boolean =>
     playerState.value.musicId !== undefined && calcPreviousIndex() !== undefined
-
   const currentPositionLabel = (): string => formatSecondsToMMSS(playerState.value.positionSeconds)
   const remainDurationLabel = (): string =>
     `- ${formatSecondsToMMSS(
@@ -79,87 +69,73 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
     )}`
 
   // 再生位置(seek)用ロジック -------------------------------------------------------
-  const getSeek = (): void => {
-    if (!audio) return
-    playerState.value.positionSeconds = audio.currentTime
-    playerState.value.musicSeconds = Number.isNaN(audio.duration) ? 0 : audio.duration
+  // 主にUIからの操作用
+  const setSeek = (seconds: number): void => {
+    engine?.setSeek(Math.max(0, seconds))
+    patchPlayerState({ positionSeconds: Math.max(0, seconds) })
   }
 
-  const setSeek = (seconds: number): void => {
-    if (audio) {
-      audio.currentTime = Math.max(0, seconds)
-    }
-    getSeek()
+  // timeupdateイベント用 (UIへの同期用)
+  const syncSeekFromAudio = (currentSeconds: number, durationSeconds: number): void => {
+    patchPlayerState({
+      positionSeconds: currentSeconds,
+      musicSeconds: durationSeconds,
+    })
   }
 
   // トラック管理 ----------------------------------------------------------
   const loadTrack = async (track: MusicMetadataDto): Promise<void> => {
-    // S3から曲のURLを取得
-    const loadManifestPath = track.manifestPath
-    const manifestUrl = new URL(loadManifestPath, getOwnUrl())
-    if (audio && playerState.value.manifestPath === loadManifestPath) return
     disposeEngine()
-    // 曲をロード
-    patchPlayerState({ manifestPath: loadManifestPath })
-    // HTMLAudioElement(audioタグ)を生成
-    audio = new Audio()
-    audio.preload = 'auto'
+    await initEngine(track.manifestPath)
 
-    // timeupdate イベントで現在再生位置を追跡
-    audioTimeupdateListener = () => getSeek()
-    audio.addEventListener('timeupdate', audioTimeupdateListener)
-
-    // HLS ソースを前提として扱う
-    const srcStr = manifestUrl.toString()
-
-    // 理論上 HLS マニフェストであるべきだが、念のためチェックする
-    if (!/\.m3u8(?:\?|$)/i.test(srcStr)) {
-      console.warn('loading non-HLS URL into player', srcStr)
-    }
-
-    await loadHls()
-
-    if (!HlsClass || !HlsEvents) {
-      throw new Error('Hls not loaded')
-    }
-
-    hls = new HlsClass()
-
-    // マニフェスト解析完了を待つ Promise を作成
-    hlsReady = new Promise<void>((resolve) => {
-      hls!.once(HlsEvents!.MANIFEST_PARSED, () => resolve())
+    patchPlayerState({
+      musicId: track.musicId,
+      musicTitle: track.musicTitle,
+      artworkImagePath: track.artworkImagePath,
+      artworkThumbnailImagePath: track.artworkThumbnailImagePath,
+      manifestPath: track.manifestPath,
+      positionSeconds: 0,
     })
 
-    hls.loadSource(manifestUrl.toString())
-    hls.attachMedia(audio)
-
-    // 再生前に manifest 解析完了を待機
-    try {
-      await hlsReady
-    } catch (err) {
-      console.error('failed to load HLS manifest', err)
-      throw err
+    if (isPlaying()) {
+      await play()
     }
-    // 曲が終了したときのイベントリスナーを登録
-    // スキップ時は判定されないため注意
-    audioEndedListener = async (): Promise<void> => {
+  }
+
+  const initEngine = async (manifestPath: string): Promise<void> => {
+    const manifestUrl = new URL(manifestPath, getOwnUrl())
+
+    // Engineを初期化
+    engine = new HlsPlayerEngine()
+    await engine.load(manifestUrl.toString())
+
+    // Eventを登録
+    engine.onTimeUpdate((current, duration) => syncSeekFromAudio(current, duration))
+    engine.onEnded(async () => {
       if (playerState.value.repeatMode === 'one') {
         await play()
         return
       }
+      await next()
+    })
+    engine.onError((event) => {
+      console.error('Player engine error:', event)
+      disposeEngine()
+    })
+  }
 
-      const isNext = await next()
-      if (!isNext) {
-        // 次の曲がない場合は停止状態にする
-        patchPlayerState({ status: 'stopped', positionSeconds: 0 })
-      }
-    }
-    audio.addEventListener('ended', audioEndedListener)
+  const disposeEngine = (): void => {
+    // Engineを破棄
+    engine?.destroy()
+    engine = undefined
+
+    // State更新
+    patchPlayerState({ manifestPath: undefined })
   }
 
   const setTracks = (newTracks: MusicMetadataDto[], startAt = 0): void => {
-    // 同じリストが再取得された場合は何もしない
     if (
+      tracks.value.length > 0 &&
       tracks.value.length === newTracks.length &&
       tracks.value.every((t, i) => t.musicId === newTracks[i].musicId)
     ) {
@@ -167,14 +143,8 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
     }
 
     tracks.value = newTracks
-    index = tracks.value.length === 0 ? -1 : Math.max(0, Math.min(startAt, tracks.value.length - 1))
+    currentIndex = Math.max(0, Math.min(startAt, tracks.value.length - 1))
     history = []
-
-    // リストが変わったタイミングでエンジンを破棄して状態をリセット
-    // 曲が削除された場合に再生できない状態になるのを防ぐため
-    // ※現状は、意図しない曲の停止を防ぐためコメントアウト
-    // disposeEngine();
-    // playerState.value = { ...playerState.value, status: "stopped" };
   }
 
   const getTrackById = (id: string): MusicMetadataDto | undefined =>
@@ -201,86 +171,31 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
       return
     }
 
-    if (track.musicId === playerState.value.musicId) return
-
-    const idx = tracks.value.findIndex((t) => t.musicId === track.musicId)
-    index = idx
-    if (tracks.value[index]) await loadTrack(tracks.value[index])
-    if (isPlaying()) {
-      await play()
+    if (track.musicId === playerState.value.musicId) {
+      return
     }
+
+    currentIndex = tracks.value.findIndex((t) => t.musicId === track.musicId)
+    await loadTrack(tracks.value[currentIndex])
 
     history = []
-
-    patchPlayerState({
-      ...track,
-      positionSeconds: 0,
-    })
-  }
-
-  const disposeEngine = (): void => {
-    if (!audio) return
-    if (audioEndedListener) {
-      audio.removeEventListener('ended', audioEndedListener)
-      audioEndedListener = undefined
-    }
-
-    if (audioTimeupdateListener) {
-      audio.removeEventListener('timeupdate', audioTimeupdateListener)
-      audioTimeupdateListener = undefined
-    }
-
-    audio.pause()
-    audio.removeAttribute('src')
-    audio.src = ''
-    audio.load()
-    audio = undefined
-
-    if (hls) {
-      hls.destroy()
-      hls = undefined
-    }
-
-    patchPlayerState({ manifestPath: undefined })
-    hlsReady = undefined
   }
 
   // 再生操作 --------------------------------------------------------------
   const play = async (): Promise<void> => {
-    if (index < 0) return
+    await engine?.play()
     patchPlayerState({ status: 'playing' })
-
-    try {
-      await audio?.play()
-    } catch (err) {
-      // HLS 用の再生待機と再試行
-      if (hls && hlsReady) {
-        try {
-          await hlsReady
-        } catch {
-          // manifest 読み込みに失敗している場合は当該エラーを上書きせず終了
-        }
-        await audio?.play().catch((e) => {
-          console.error('play retry failed', e)
-        })
-      } else {
-        console.error('audio.play() failed', err)
-      }
-    }
   }
 
   const pause = (): void => {
+    engine?.pause()
     patchPlayerState({ status: 'paused' })
-    audio?.pause()
   }
 
   const stop = (): void => {
-    patchPlayerState({ status: 'stopped' })
-    if (audio) {
-      audio.pause()
-      audio.currentTime = 0
-    }
+    engine?.stop()
     setSeek(0)
+    patchPlayerState({ status: 'stopped' })
   }
 
   // none -> all -> one -> none
@@ -294,28 +209,33 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
   const toggleShuffle = (): void => {
     const currentShuffleEnabled = playerState.value.shuffleEnabled
     patchPlayerState({ shuffleEnabled: !currentShuffleEnabled })
-    if (!currentShuffleEnabled) history = []
+    if (!currentShuffleEnabled) {
+      history = []
+    }
   }
 
   const nextSeek = (): void => {
-    if (!audio) return
-    const current = audio.currentTime
-    setSeek(current + 10)
+    setSeek(playerState.value.positionSeconds + 10)
   }
 
   const previousSeek = (): void => {
-    if (!audio) return
-    const current = audio.currentTime
-    setSeek(current - 10)
+    setSeek(playerState.value.positionSeconds - 10)
   }
 
+  // 次の曲がある場合はその曲を返却、なければundefinedを返却
   const next = async (): Promise<MusicMetadataDto | undefined> => {
     const nextIdx = calcNextIndex()
-    if (nextIdx === undefined) return undefined
-    index = nextIdx
+    if (nextIdx === undefined) {
+      patchPlayerState({ status: 'stopped', positionSeconds: 0 })
+      return undefined
+    }
+
+    currentIndex = nextIdx
 
     // historyを更新 (重複は避ける)
-    if (!history.includes(index)) history.push(index)
+    if (!history.includes(currentIndex)) {
+      history.push(currentIndex)
+    }
 
     // 一周分再生済みなら履歴をクリア
     if (
@@ -327,7 +247,9 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
     }
 
     // 曲のロード
-    if (tracks.value[index]) await loadTrack(tracks.value[index])
+    if (tracks.value[currentIndex]) {
+      await loadTrack(tracks.value[currentIndex])
+    }
 
     // 再生中なら新しい曲を再生
     if (playerState.value.status === 'playing') {
@@ -336,23 +258,32 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
 
     // 選択中の曲を更新
     patchPlayerState({
-      ...tracks.value[index],
+      ...tracks.value[currentIndex],
       positionSeconds: 0,
     })
 
-    return tracks.value[index]
+    return tracks.value[currentIndex]
   }
 
   const previous = async (): Promise<MusicMetadataDto | undefined> => {
     const prevIdx = calcPreviousIndex()
-    if (prevIdx === undefined) return undefined
-    index = prevIdx
+    if (prevIdx === undefined) {
+      patchPlayerState({ status: 'stopped', positionSeconds: 0 })
+      return undefined
+    }
+
+    currentIndex = prevIdx
 
     // historyを更新
     const histIdx = history.lastIndexOf(prevIdx)
-    if (histIdx >= 0) history.splice(histIdx, 1)
+    if (histIdx >= 0) {
+      history.splice(histIdx, 1)
+    }
+
     // 曲のロード
-    if (tracks.value[index]) await loadTrack(tracks.value[index])
+    if (tracks.value[currentIndex]) {
+      await loadTrack(tracks.value[currentIndex])
+    }
     // 再生中なら新しい曲を再生
     if (playerState.value.status === 'playing') {
       await play()
@@ -360,11 +291,11 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
 
     // 選択中の曲を更新
     patchPlayerState({
-      ...tracks.value[index],
+      ...tracks.value[currentIndex],
       positionSeconds: 0,
     })
 
-    return tracks.value[index]
+    return tracks.value[currentIndex]
   }
 
   // next/previous 計算ロジック --------------------------------------------
@@ -372,21 +303,21 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
   // 状態変更は行わない。上位関数である next() で状態変更は実施
   // 詳細は README.md を参照
   const calcNextIndex = (): number | undefined => {
-    if (index < 0 || tracks.value.length === 0) return undefined
-    const isAtEnd = index === tracks.value.length - 1
+    if (currentIndex < 0 || tracks.value.length === 0) return undefined
+    const isAtEnd = currentIndex === tracks.value.length - 1
     const hasMultiple = tracks.value.length > 1
 
     // repeat one は常に現在の曲を返す
-    if (playerState.value.repeatMode === 'one') return index
+    if (playerState.value.repeatMode === 'one') return currentIndex
 
     // シャッフル有効時
     if (playerState.value.shuffleEnabled) {
       // 曲が1つしかない場合
-      if (!hasMultiple) return playerState.value.repeatMode === 'all' ? index : undefined
+      if (!hasMultiple) return playerState.value.repeatMode === 'all' ? currentIndex : undefined
 
       // 複数曲ある場合: history と現在の曲を除いた候補からランダムに選ぶ
       const excluded = new Set<number>(history)
-      excluded.add(index)
+      excluded.add(currentIndex)
 
       const candidates: number[] = []
       for (let i = 0; i < tracks.value.length; i++) {
@@ -400,9 +331,9 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
           // 履歴をクリアせず計算上は現在の曲以外からランダムに選ぶ
           const fresh: number[] = []
           for (let i = 0; i < tracks.value.length; i++) {
-            if (i !== index) fresh.push(i)
+            if (i !== currentIndex) fresh.push(i)
           }
-          if (fresh.length === 0) return index
+          if (fresh.length === 0) return currentIndex
           return fresh[Math.floor(Math.random() * fresh.length)]
         }
 
@@ -414,7 +345,7 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
     }
 
     // シャッフル無効時で最終曲でない場合はシンプルに次のインデックスを返却
-    if (!isAtEnd) return index + 1
+    if (!isAtEnd) return currentIndex + 1
 
     // 最終曲でallの場合は先頭の曲を返却
     return playerState.value.repeatMode === 'all' ? 0 : undefined
@@ -424,20 +355,20 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
   // 状態変更は行わない。上位関数である previous() で状態変更は実施
   // 詳細は README.md を参照
   const calcPreviousIndex = (): number | undefined => {
-    if (index < 0 || tracks.value.length === 0) return undefined
-    const isAtStart = index === 0
+    if (currentIndex < 0 || tracks.value.length === 0) return undefined
+    const isAtStart = currentIndex === 0
     const hasHistory = history.length > 0
     const hasMultiple = tracks.value.length > 1
 
     // repeat one は常に現在の曲を返す
-    if (playerState.value.repeatMode === 'one') return index
+    if (playerState.value.repeatMode === 'one') return currentIndex
 
     // シャッフル有効時
     if (playerState.value.shuffleEnabled) {
       // historyがある場合
       if (hasHistory) return history[history.length - 1]
       // historyがなければシャッフル無効時と同様のロジック
-      if (!isAtStart) return index - 1
+      if (!isAtStart) return currentIndex - 1
       return playerState.value.repeatMode === 'all'
         ? hasMultiple
           ? tracks.value.length - 1
@@ -446,7 +377,7 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
     }
 
     // シャッフル無効時: 先頭の曲でない場合はシンプルに前のインデックスを返却
-    if (!isAtStart) return index - 1
+    if (!isAtStart) return currentIndex - 1
     // 先頭の曲でallで複数の曲がある場合は最後の曲を返却
     return playerState.value.repeatMode === 'all'
       ? hasMultiple

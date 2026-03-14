@@ -35,7 +35,7 @@
         <v-col cols="auto">
           <v-img
             v-if="musicPlayerStore.playerState.artworkThumbnailImagePath"
-            :src="`${musicPlayerStore.playerState.url}${musicPlayerStore.playerState.artworkThumbnailImagePath}`"
+            :src="`${getOwnUrl()}/${musicPlayerStore.playerState.artworkThumbnailImagePath}`"
             :alt="musicPlayerStore.playerState.musicTitle || ''"
             width="64"
             height="64"
@@ -150,6 +150,7 @@
 <script setup lang="ts">
 import { useResponsiveButton } from '@/presentation/composables/useResponsiveButton'
 import { useMusicPlayerStore } from '@/presentation/stores/useMusicPlayerStore'
+import { getOwnUrl } from '@/presentation/utils/domain'
 import type { MusicMetadataDto } from '@/use_cases/musicMetadataDto'
 import { computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -224,7 +225,7 @@ watch(
       artwork: state.artworkThumbnailImagePath
         ? [
             {
-              src: `${musicPlayerStore.playerState.url}${state.artworkThumbnailImagePath}`,
+              src: `${getOwnUrl()}/${state.artworkThumbnailImagePath}`,
             },
           ]
         : undefined,

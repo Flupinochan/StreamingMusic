@@ -34,10 +34,14 @@ export class CreateMusicUsecase {
       this.musicDataRepository.upload(musicPath, musicFile),
     ])
 
-    // ask server to process the raw file and produce manifest
-    const manifestPath = await this.musicDataRepository.process(musicPath)
+    // ffmpeg変換は30秒以上処理がかかる可能性があるため、ひとまずawaitしないで後続処理をする
+    // 同時に音楽アップロードできるため、どちらにしてもここではawaitしない方がUXが良い
+    this.musicDataRepository.process(musicPath)
 
-    // build metadata with returned manifest path
+    const folder = musicPath.getFolderPath()
+    const manifestPath = `${folder}/index.m3u8`
+
+    // 処理が完了していなくてもListに表示されるが、許容する
     const musicMetadata = MusicMetadata.create(
       MusicTitle.create(title),
       MusicSeconds.create(seconds),
