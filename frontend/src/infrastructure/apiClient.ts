@@ -24,11 +24,22 @@ export function setTokenProvider(provider: TokenProvider): void {
   tokenProvider = provider
 }
 
-function handleResponse<T>(res: Response): Promise<T> {
+async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}: ${res.statusText}`)
   }
-  return res.json() as Promise<T>
+
+  if (res.status === 204 || res.status === 205) {
+    return undefined as T
+  }
+
+  const text = await res.text()
+  if (text.length === 0) {
+    return undefined as T
+  }
+
+  // テキストがある場合はJSONとしてパースする方針
+  return JSON.parse(text) as T
 }
 
 export function makeApiClient(): ApiClient {

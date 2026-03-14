@@ -1,5 +1,3 @@
-process.env.POWERTOOLS_LOGGER_LOG_EVENT = "true";
-
 import { Logger } from "@aws-lambda-powertools/logger";
 import { parser } from "@aws-lambda-powertools/parser/middleware";
 import { APIGatewayProxyEventSchema } from "@aws-lambda-powertools/parser/schemas/api-gateway";

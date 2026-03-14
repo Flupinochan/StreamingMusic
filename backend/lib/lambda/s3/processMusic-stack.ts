@@ -1,8 +1,10 @@
 import * as cdk from "aws-cdk-lib";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as eventsources from "aws-cdk-lib/aws-lambda-event-sources";
 import * as lambdaNodejs from "aws-cdk-lib/aws-lambda-nodejs";
 import * as logs from "aws-cdk-lib/aws-logs";
+import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import { Construct } from "constructs";
 import * as path from "path";
@@ -15,6 +17,7 @@ export class ProcessMusicStack extends cdk.Stack {
   public readonly processMusicLogGroup: logs.LogGroup;
   public readonly processMusicRole: iam.Role;
   public readonly processMusicFunction: lambda.Function;
+  public readonly processMusicQueue: sqs.Queue;
   public readonly ffmpegLayer: lambda.LayerVersion;
 
   constructor(scope: Construct, id: string, props: ProcessMusicStackProps) {
@@ -65,13 +68,30 @@ export class ProcessMusicStack extends cdk.Stack {
       }),
     );
 
+    const processMusicDlq = new sqs.Queue(this, "ProcessMusicDlq", {
+      queueName: `${cdk.Stack.of(this).stackName.toLocaleLowerCase()}-processmusic-dlq`,
+      retentionPeriod: cdk.Duration.days(1),
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    this.processMusicQueue = new sqs.Queue(this, "ProcessMusicQueue", {
+      queueName: `${cdk.Stack.of(this).stackName.toLocaleLowerCase()}-processmusic-queue`,
+      visibilityTimeout: cdk.Duration.minutes(15),
+      retentionPeriod: cdk.Duration.days(1),
+      deadLetterQueue: {
+        queue: processMusicDlq,
+        maxReceiveCount: 3,
+      },
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
     this.processMusicFunction = new lambdaNodejs.NodejsFunction(
       this,
       "ProcessMusicFunction",
       {
         functionName: `${cdk.Stack.of(this).stackName.toLocaleLowerCase()}-processMusic`,
         runtime: lambda.Runtime.NODEJS_24_X,
-        timeout: cdk.Duration.seconds(300),
+        timeout: cdk.Duration.seconds(900),
         // 音楽ファイルをダウンロードして処理するため多めに1GiBに設定
         ephemeralStorageSize: cdk.Size.gibibytes(1),
         memorySize: 1024,
@@ -82,12 +102,20 @@ export class ProcessMusicStack extends cdk.Stack {
         entry: path.join(__dirname, "processMusic.ts"),
         environment: {
           BUCKET_NAME: props.bucketName,
+          POWERTOOLS_LOGGER_LOG_EVENT: "true",
+          TZ: "Asia/Tokyo",
         },
         layers: [this.ffmpegLayer, powertoolsLayer],
         bundling: {
           externalModules: ["@aws-lambda-powertools/*"],
         },
       },
+    );
+
+    this.processMusicFunction.addEventSource(
+      new eventsources.SqsEventSource(this.processMusicQueue, {
+        batchSize: 1,
+      }),
     );
   }
 }

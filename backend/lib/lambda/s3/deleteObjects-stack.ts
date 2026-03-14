@@ -72,6 +72,8 @@ export class DeleteObjectsStack extends cdk.Stack {
         entry: path.join(__dirname, "deleteObjects.ts"),
         environment: {
           BUCKET_NAME: props.bucketName,
+          POWERTOOLS_LOGGER_LOG_EVENT: "true",
+          TZ: "Asia/Tokyo",
         },
         layers: [powertoolsLayer],
         bundling: {

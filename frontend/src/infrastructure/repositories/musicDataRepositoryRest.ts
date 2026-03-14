@@ -45,12 +45,13 @@ export class MusicDataRepositoryRest {
   }
 
   async process(key: string): Promise<string> {
-    const resp = await this.client.post<{ manifestPath: string }>('/processMusic', {
+    await this.client.post<{ manifestPath: string }>('/processMusic', {
       key,
     })
-    if (!resp.manifestPath) {
-      throw new Error(`failed to process music file: ${key}`)
-    }
-    return resp.manifestPath
+    // SQSに送るだけにしたのでレスポンスはリクエストのkeyを返すように変更
+    // if (!resp.manifestPath) {
+    //   throw new Error(`failed to process music file: ${key}`)
+    // }
+    return key
   }
 }

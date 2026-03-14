@@ -1,6 +1,8 @@
 import * as cdk from "aws-cdk-lib";
 import * as apigateway from "aws-cdk-lib/aws-apigateway";
+import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as sqs from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
 import { AuthStack } from "./auth-stack";
 
@@ -11,7 +13,7 @@ interface ApiStackProps extends cdk.StackProps {
   deleteMetadataFunction: lambda.Function;
   generateUrlFunction: lambda.Function;
   deleteObjectsFunction: lambda.Function;
-  processMusicFunction: lambda.Function;
+  processMusicQueue: sqs.IQueue;
   apiPath: string;
   domainName: string;
 }
@@ -30,6 +32,7 @@ export class ApiStack extends cdk.Stack {
 
     this.metadataRestApi = new apigateway.RestApi(this, "MetadataRestApi", {
       restApiName: "StreamingMusicMetadataApi",
+      cloudWatchRole: true,
       defaultCorsPreflightOptions: {
         allowOrigins: [`https://${props.domainName}`, "http://localhost:5173"],
         allowMethods: apigateway.Cors.ALL_METHODS,
@@ -134,12 +137,134 @@ export class ApiStack extends cdk.Stack {
       { authorizer, authorizationType: apigateway.AuthorizationType.COGNITO },
     );
 
+    // SQSを利用するため、API Gateway側でModelを利用してValidationを実施
     const processResource =
       this.metadataRestApi.root.addResource("processMusic");
-    processResource.addMethod(
-      "POST",
-      new apigateway.LambdaIntegration(props.processMusicFunction),
-      { authorizer, authorizationType: apigateway.AuthorizationType.COGNITO },
+
+    const processMusicRequestModel = this.metadataRestApi.addModel(
+      "ProcessMusicRequestModel",
+      {
+        contentType: "application/json",
+        schema: {
+          type: apigateway.JsonSchemaType.OBJECT,
+          properties: {
+            key: { type: apigateway.JsonSchemaType.STRING },
+          },
+          required: ["key"],
+        },
+      },
     );
+
+    const processMusicRequestValidator = new apigateway.RequestValidator(
+      this,
+      "ProcessMusicRequestValidator",
+      {
+        restApi: this.metadataRestApi,
+        validateRequestBody: true,
+      },
+    );
+
+    const apiGatewaySqsRole = new iam.Role(this, "ApiGatewaySqsRole", {
+      assumedBy: new iam.ServicePrincipal("apigateway.amazonaws.com"),
+    });
+
+    props.processMusicQueue.grantSendMessages(apiGatewaySqsRole);
+
+    const sqsIntegration = new apigateway.AwsIntegration({
+      service: "sqs",
+      integrationHttpMethod: "POST",
+      path: `${cdk.Aws.ACCOUNT_ID}/${props.processMusicQueue.queueName}`,
+      options: {
+        credentialsRole: apiGatewaySqsRole,
+        requestTemplates: {
+          "application/json":
+            "Action=SendMessage&MessageBody=$util.urlEncode($input.body)",
+        },
+        requestParameters: {
+          "integration.request.header.Content-Type":
+            "'application/x-www-form-urlencoded'",
+        },
+        integrationResponses: [
+          {
+            statusCode: "202",
+            responseParameters: {
+              "method.response.header.Access-Control-Allow-Origin": "'*'",
+              "method.response.header.Access-Control-Allow-Methods":
+                "'POST,OPTIONS'",
+              "method.response.header.Access-Control-Allow-Headers":
+                "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'",
+            },
+            responseTemplates: {
+              "application/json": JSON.stringify({ message: "accepted" }),
+            },
+          },
+          {
+            selectionPattern: "4\\d{2}",
+            statusCode: "400",
+            responseParameters: {
+              "method.response.header.Access-Control-Allow-Origin": "'*'",
+              "method.response.header.Access-Control-Allow-Methods":
+                "'POST,OPTIONS'",
+              "method.response.header.Access-Control-Allow-Headers":
+                "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'",
+            },
+            responseTemplates: {
+              "application/json": JSON.stringify({ message: "bad request" }),
+            },
+          },
+          {
+            selectionPattern: "5\\d{2}",
+            statusCode: "500",
+            responseParameters: {
+              "method.response.header.Access-Control-Allow-Origin": "'*'",
+              "method.response.header.Access-Control-Allow-Methods":
+                "'POST,OPTIONS'",
+              "method.response.header.Access-Control-Allow-Headers":
+                "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'",
+            },
+            responseTemplates: {
+              "application/json": JSON.stringify({
+                message: "internal server error",
+              }),
+            },
+          },
+        ],
+      },
+    });
+
+    processResource.addMethod("POST", sqsIntegration, {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+      requestValidator: processMusicRequestValidator,
+      requestModels: {
+        "application/json": processMusicRequestModel,
+      },
+      methodResponses: [
+        {
+          statusCode: "202",
+          responseParameters: {
+            "method.response.header.Access-Control-Allow-Origin": true,
+            "method.response.header.Access-Control-Allow-Methods": true,
+            "method.response.header.Access-Control-Allow-Headers": true,
+          },
+        },
+        {
+          statusCode: "400",
+          responseParameters: {
+            "method.response.header.Access-Control-Allow-Origin": true,
+            "method.response.header.Access-Control-Allow-Methods": true,
+            "method.response.header.Access-Control-Allow-Headers": true,
+          },
+        },
+        {
+          statusCode: "500",
+          responseParameters: {
+            "method.response.header.Access-Control-Allow-Origin": true,
+            "method.response.header.Access-Control-Allow-Methods": true,
+            "method.response.header.Access-Control-Allow-Headers": true,
+          },
+        },
+      ],
+    });
   }
 }

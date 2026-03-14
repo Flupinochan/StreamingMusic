@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import * as cdk from "aws-cdk-lib/core";
-import { ApiStack } from "../lib/api-stack";
 import { AuthStack } from "../lib/auth-stack";
 import { DbStack } from "../lib/db-stack";
 import { getEnvConfig } from "../lib/env";
@@ -12,6 +11,7 @@ import { DeleteObjectsStack } from "../lib/lambda/s3/deleteObjects-stack";
 import { GenerateUrlStack } from "../lib/lambda/s3/generateUrl-stack";
 import { ProcessMusicStack } from "../lib/lambda/s3/processMusic-stack";
 import { PipelineStack } from "../lib/pipeline-stack";
+import { ApiStack } from "../lib/api-stack";
 
 const app = new cdk.App();
 const envName =
@@ -90,7 +90,7 @@ const apiStack = new ApiStack(app, `${prefix}ApiStack`, {
   deleteMetadataFunction: deleteMetadataStack.deleteMetadataFunction,
   generateUrlFunction: generateUrlStack.generateS3PresignedUrlFunction,
   deleteObjectsFunction: deleteObjectsStack.deleteObjectsFunction,
-  processMusicFunction: processMusicStack.processMusicFunction,
+  processMusicQueue: processMusicStack.processMusicQueue,
   apiPath,
   domainName: cfg.domainName,
 });

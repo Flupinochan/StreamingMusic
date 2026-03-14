@@ -75,6 +75,8 @@ export class PostMetadataStack extends cdk.Stack {
         entry: path.join(__dirname, "postMetadata.ts"),
         environment: {
           TABLE_NAME: props.dbStack.musicMetadataTable.tableName,
+          POWERTOOLS_LOGGER_LOG_EVENT: "true",
+          TZ: "Asia/Tokyo",
         },
         layers: [powertoolsLayer],
         bundling: {
