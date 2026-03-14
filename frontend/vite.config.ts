@@ -30,15 +30,8 @@ export default defineConfig({
       filename: './tmp/stats.html',
     }),
     VitePWA({
-      // HTMLで利用するサイトのアイコン等をキャッシュ
-      includeAssets: [
-        'icon-16x16.ico',
-        'icon-32x32.ico',
-        'favicon.ico',
-        'favicon.png',
-        'image-512x512.png',
-        'apple-touch-icon.png',
-      ],
+      // HTMLで利用するサイトのアイコン等(publicフォルダ)をキャッシュ (FCPに影響するため最小限)
+      includeAssets: ['favicon.ico'],
       // manifest.json
       manifest: {
         name: 'MetalMental Music',
@@ -129,7 +122,7 @@ export default defineConfig({
       // service workerファイル指定
       srcDir: 'src/sw/',
       filename: 'serviceWorker.ts',
-      // プリキャッシュ
+      // build成果物をプリキャッシュ
       strategies: 'injectManifest',
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,jpg,jpeg,svg,woff2,json,yaml,txt,webp,avif,ts}'],
