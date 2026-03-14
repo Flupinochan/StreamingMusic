@@ -124,11 +124,11 @@ export default defineConfig({
       filename: 'serviceWorker.ts',
       // build成果物をプリキャッシュ
       strategies: 'injectManifest',
-      injectManifest: {
-        globPatterns: ['**/*.{js,css,html,ico,png,jpg,jpeg,svg,woff2,json,yaml,txt,webp,avif,ts}'],
-        globIgnores: ['**/*.gif'],
-        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
-      },
+      // injectManifest: {
+      //   globPatterns: ['**/*.{js,css,html,ico,png,jpg,jpeg,svg,woff2,json,yaml,txt,webp,avif,ts}'],
+      //   globIgnores: ['**/*.gif'],
+      //   maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
+      // },
       // Service Worker登録/更新方法
       registerType: 'prompt',
       injectRegister: 'script-defer',
