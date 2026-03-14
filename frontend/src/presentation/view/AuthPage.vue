@@ -143,7 +143,7 @@ const handleConfirmNewPassword = async (): Promise<void> => {
 
 const handleKeydown = (e: KeyboardEvent): void => {
   if (e.ctrlKey && e.altKey && e.shiftKey && e.key.toLowerCase() === 'a') {
-    router.push({ path: 'home' })
+    router.push({ name: 'home' })
   }
 }
 

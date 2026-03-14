@@ -11,6 +11,9 @@
     "cdk": "cdk"
   },
   "devDependencies": {
+    "@aws-lambda-powertools/event-handler": "^2.31.0",
+    "@aws-lambda-powertools/logger": "^2.31.0",
+    "@aws-lambda-powertools/parser": "^2.31.0",
     "@types/jest": "^30",
     "@types/node": "^25.3.5",
     "aws-cdk": "^2.1109.0",
@@ -20,13 +23,13 @@
     "typescript": "~5.9.3"
   },
   "dependencies": {
-    "@aws-lambda-powertools/event-handler": "^2.31.0",
-    "@aws-lambda-powertools/logger": "^2.31.0",
     "@aws-sdk/client-dynamodb": "^3.1007.0",
     "@aws-sdk/client-s3": "^3.1004.0",
     "@aws-sdk/lib-dynamodb": "^3.1007.0",
     "@aws-sdk/s3-request-presigner": "^3.1004.0",
+    "@middy/core": "^7.1.6",
     "aws-cdk-lib": "^2.236.0",
-    "constructs": "^10.0.0"
+    "constructs": "^10.0.0",
+    "zod": "^4.3.6"
   }
 }

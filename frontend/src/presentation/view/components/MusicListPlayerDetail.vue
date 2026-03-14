@@ -42,6 +42,7 @@ const props = defineProps<DetailProps>()
 const musicPlayerStore = useMusicPlayerStore()
 const router = useRouter()
 
+// ページリロードや次の曲へ遷移したときにURLのIDとプレイヤーのIDを同期させる
 watch(
   () => props.musicId,
   async (newId) => {

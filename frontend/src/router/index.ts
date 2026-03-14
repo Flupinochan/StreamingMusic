@@ -5,16 +5,16 @@ export type DetailProps = {
   musicId: string
 }
 
+// 基本的にdynamic importでコード分割すべき
 const routes = [
   {
     path: '/',
     name: 'home',
-    component: (): Promise<{ default: Component }> => import('@/presentation/view/GuestPage.vue'),
+    component: (): Promise<{ default: Component }> => import('@/presentation/view/HomePage.vue'),
   },
   {
     name: 'detail',
     path: '/detail/:id',
-    alias: ['/detail/:id'],
     props: (route: RouteLocationNormalized): DetailProps => ({
       musicId: route.params.id as string,
     }),

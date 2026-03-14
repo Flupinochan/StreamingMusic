@@ -5,6 +5,7 @@ import type { MusicMetadataDto } from '@/use_cases/musicMetadataDto'
 import type Hls from 'hls.js'
 import { getOwnUrl } from '../utils/domain'
 import { HlsClass, HlsEvents, loadHls } from '../utils/hls'
+import { formatSecondsToMMSS } from '../utils/time'
 
 export type PlayerStatus = 'stopped' | 'playing' | 'paused'
 export type RepeatMode = 'none' | 'one' | 'all'
@@ -46,6 +47,10 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
   // 曲のリスト
   const tracks = ref<MusicMetadataDto[]>([])
 
+  const patchPlayerState = (patch: Partial<PlayerState>): void => {
+    playerState.value = { ...playerState.value, ...patch }
+  }
+
   // 内部データ --------------------------------------------------------------
   // queue配列の中で現在再生している曲のindex (-1の場合は再生する曲がない状態)
   let index = -1
@@ -67,38 +72,11 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
   const canPrevious = (): boolean =>
     playerState.value.musicId !== undefined && calcPreviousIndex() !== undefined
 
-  const totalDurationLabel = (): string => {
-    const total = playerState.value.musicSeconds
-    const min = Math.floor(total / 60)
-      .toString()
-      .padStart(2, '0')
-    const sec = Math.floor(total % 60)
-      .toString()
-      .padStart(2, '0')
-    return `${min}:${sec}`
-  }
-
-  const currentPositionLabel = (): string => {
-    const current = playerState.value.positionSeconds
-    const min = Math.floor(current / 60)
-      .toString()
-      .padStart(2, '0')
-    const sec = Math.floor(current % 60)
-      .toString()
-      .padStart(2, '0')
-    return `${min}:${sec}`
-  }
-
-  const remainDurationLabel = (): string => {
-    const remain = Math.max(0, playerState.value.musicSeconds - playerState.value.positionSeconds)
-    const min = Math.floor(remain / 60)
-      .toString()
-      .padStart(2, '0')
-    const sec = Math.floor(remain % 60)
-      .toString()
-      .padStart(2, '0')
-    return `- ${min}:${sec}`
-  }
+  const currentPositionLabel = (): string => formatSecondsToMMSS(playerState.value.positionSeconds)
+  const remainDurationLabel = (): string =>
+    `- ${formatSecondsToMMSS(
+      Math.max(0, playerState.value.musicSeconds - playerState.value.positionSeconds),
+    )}`
 
   // 再生位置(seek)用ロジック -------------------------------------------------------
   const getSeek = (): void => {
@@ -122,10 +100,7 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
     if (audio && playerState.value.manifestPath === loadManifestPath) return
     disposeEngine()
     // 曲をロード
-    playerState.value = {
-      ...playerState.value,
-      manifestPath: loadManifestPath,
-    }
+    patchPlayerState({ manifestPath: loadManifestPath })
     // HTMLAudioElement(audioタグ)を生成
     audio = new Audio()
     audio.preload = 'auto'
@@ -166,6 +141,7 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
       throw err
     }
     // 曲が終了したときのイベントリスナーを登録
+    // スキップ時は判定されないため注意
     audioEndedListener = async (): Promise<void> => {
       if (playerState.value.repeatMode === 'one') {
         await play()
@@ -175,10 +151,7 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
       const isNext = await next()
       if (!isNext) {
         // 次の曲がない場合は停止状態にする
-        playerState.value = {
-          ...playerState.value,
-          status: 'stopped',
-        }
+        patchPlayerState({ status: 'stopped', positionSeconds: 0 })
       }
     }
     audio.addEventListener('ended', audioEndedListener)
@@ -214,8 +187,7 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
 
   const selectTrack = async (track: MusicMetadataDto | undefined): Promise<void> => {
     if (!track) {
-      playerState.value = {
-        ...playerState.value,
+      patchPlayerState({
         musicId: undefined,
         musicTitle: undefined,
         manifestPath: undefined,
@@ -224,7 +196,7 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
         positionSeconds: 0,
         musicSeconds: 0,
         status: 'stopped',
-      }
+      })
       disposeEngine()
       return
     }
@@ -240,11 +212,10 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
 
     history = []
 
-    playerState.value = {
-      ...playerState.value,
+    patchPlayerState({
       ...track,
       positionSeconds: 0,
-    }
+    })
   }
 
   const disposeEngine = (): void => {
@@ -270,17 +241,14 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
       hls = undefined
     }
 
-    playerState.value = {
-      ...playerState.value,
-      manifestPath: undefined,
-    }
+    patchPlayerState({ manifestPath: undefined })
     hlsReady = undefined
   }
 
   // 再生操作 --------------------------------------------------------------
   const play = async (): Promise<void> => {
     if (index < 0) return
-    playerState.value = { ...playerState.value, status: 'playing' }
+    patchPlayerState({ status: 'playing' })
 
     try {
       await audio?.play()
@@ -302,12 +270,12 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
   }
 
   const pause = (): void => {
-    playerState.value = { ...playerState.value, status: 'paused' }
+    patchPlayerState({ status: 'paused' })
     audio?.pause()
   }
 
   const stop = (): void => {
-    playerState.value = { ...playerState.value, status: 'stopped' }
+    patchPlayerState({ status: 'stopped' })
     if (audio) {
       audio.pause()
       audio.currentTime = 0
@@ -320,15 +288,12 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
     const currentMode = playerState.value.repeatMode
     const nextMode: RepeatMode =
       currentMode === 'none' ? 'all' : currentMode === 'all' ? 'one' : 'none'
-    playerState.value = { ...playerState.value, repeatMode: nextMode }
+    patchPlayerState({ repeatMode: nextMode })
   }
 
   const toggleShuffle = (): void => {
     const currentShuffleEnabled = playerState.value.shuffleEnabled
-    playerState.value = {
-      ...playerState.value,
-      shuffleEnabled: !currentShuffleEnabled,
-    }
+    patchPlayerState({ shuffleEnabled: !currentShuffleEnabled })
     if (!currentShuffleEnabled) history = []
   }
 
@@ -370,11 +335,10 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
     }
 
     // 選択中の曲を更新
-    playerState.value = {
-      ...playerState.value,
+    patchPlayerState({
       ...tracks.value[index],
       positionSeconds: 0,
-    }
+    })
 
     return tracks.value[index]
   }
@@ -395,11 +359,10 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
     }
 
     // 選択中の曲を更新
-    playerState.value = {
-      ...playerState.value,
+    patchPlayerState({
       ...tracks.value[index],
       positionSeconds: 0,
-    }
+    })
 
     return tracks.value[index]
   }
@@ -511,7 +474,6 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
     previousSeek,
     next,
     previous,
-    totalDurationLabel,
     currentPositionLabel,
     remainDurationLabel,
     selectTrackById,

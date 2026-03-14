@@ -56,6 +56,7 @@ const musicStore = useMusicStore()
 const musicPlayerStore = useMusicPlayerStore()
 
 onMounted(() => {
+  // アイドル時に処理することで、初期表示の高速化を図る
   requestIdleCallback(
     () => {
       if (musicPlayerStore.tracks.length === 0) {
@@ -72,7 +73,6 @@ const selectedIds = computed<string[]>({
     return id ? [id] : []
   },
   set(ids) {
-    // 選択変更時に呼ばれる
     const id = ids[0]
     const track = musicPlayerStore.tracks.find((t) => t.musicId === id)
     musicPlayerStore.selectTrack(track)

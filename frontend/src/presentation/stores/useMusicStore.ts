@@ -8,6 +8,7 @@ import type { CreateMusicUsecase } from '../../use_cases/createMusicUsecase'
 import type { RemoveMusicDto } from '../../use_cases/removeMusicDto'
 import type { RemoveMusicUsecase } from '../../use_cases/removeMusicUsecase'
 
+// CRUD操作用
 export const useMusicStore = defineStore('music', () => {
   let createMusicUsecase: CreateMusicUsecase | undefined = undefined
   let removeMusicUsecase: RemoveMusicUsecase | undefined = undefined
@@ -17,8 +18,6 @@ export const useMusicStore = defineStore('music', () => {
   // UI State
   const loading = ref(false)
   const error = ref<string | undefined>(undefined)
-
-  let subscription: { unsubscribe: () => void } | undefined = undefined
 
   const getCreateMusicUsecase = (): CreateMusicUsecase => {
     if (!createMusicUsecase) {
@@ -58,11 +57,6 @@ export const useMusicStore = defineStore('music', () => {
 
   const setListMusicMetadataUsecase = (value: ListMusicMetadataUsecase): void => {
     listMusicMetadataUsecase = value
-  }
-
-  const stopMusicListSubscription = (): void => {
-    subscription?.unsubscribe()
-    subscription = undefined
   }
 
   const listMusic = async (): Promise<void> => {
@@ -120,7 +114,6 @@ export const useMusicStore = defineStore('music', () => {
     setListMusicMetadataUsecase,
     loading,
     error,
-    stopMusicListSubscription,
     uploadMusic,
     removeMusic,
     listMusic,

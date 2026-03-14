@@ -1,50 +1,76 @@
 process.env.POWERTOOLS_LOGGER_LOG_EVENT = "true";
 
 import { Logger } from "@aws-lambda-powertools/logger";
+import { JSONStringified } from "@aws-lambda-powertools/parser/helpers";
+import { parser } from "@aws-lambda-powertools/parser/middleware";
+import { APIGatewayProxyEventSchema } from "@aws-lambda-powertools/parser/schemas/api-gateway";
+import type { ParsedResult } from "@aws-lambda-powertools/parser/types";
 import {
   DeleteObjectCommand,
   GetObjectCommand,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
-import type { APIGatewayProxyHandler } from "aws-lambda";
+import middy from "@middy/core";
+import type { APIGatewayProxyResult, Context } from "aws-lambda";
 import { execFile } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import { promisify } from "util";
+import { z } from "zod";
+
+const BUCKET_NAME = process.env.BUCKET_NAME!;
+// ffmpeg Layerのパス
+const FFMPEG_PATH = "/opt/bin/ffmpeg";
 
 const logger = new Logger();
 const s3Client = new S3Client();
 
-const BUCKET_NAME = process.env.BUCKET_NAME!;
-// path inside Lambda; pipeline extracts into bin/ so executable ends up at /opt/bin/ffmpeg
-const FFMPEG_PATH = "/opt/bin/ffmpeg";
+const requestBodySchema = z.object({
+  key: z.string().min(1),
+});
 
-interface ProcessMusicInput {
-  key: string;
-}
+const lambdaEventSchema = APIGatewayProxyEventSchema.extend({
+  body: JSONStringified(requestBodySchema),
+});
+
+type ParsedEvent = z.infer<typeof lambdaEventSchema>;
+type SafeParsedEvent = ParsedResult<ParsedEvent, ParsedEvent>;
 
 const execFileAsync = promisify(execFile);
 
-export const handler: APIGatewayProxyHandler = async (event, _context) => {
+/**
+ * 指定したS3 key音楽ファイルをHLS形式に変換し分割してS3へアップロードする
+ * @param event
+ * @param context
+ * @returns
+ */
+const lambdaHandler = async (
+  event: SafeParsedEvent,
+  context: Context,
+): Promise<APIGatewayProxyResult> => {
+  logger.addContext(context);
   logger.logEventIfEnabled(event);
 
-  const body = event.body ? JSON.parse(event.body) : {};
-  const key = body.key;
-  if (!key) {
-    logger.error("Missing key in event", { event });
+  // middy, zodを利用したリクエストボディのバリデーション
+  if (!event.success) {
+    logger.error("Invalid request body", { error: event.error });
     return {
       statusCode: 400,
-      headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*" },
-      body: "Missing key",
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "*",
+      },
+      body: "Invalid request body",
     };
   }
 
+  const key = event.data.body.key;
   const folder = path.dirname(key);
   const manifestKey = `${folder}/index.m3u8`;
   logger.info("Processing music file", { key, folder, manifestKey });
 
-  // download file to /tmp
+  // download S3 music file to /tmp
   const tmpFile = `/tmp/${path.basename(key)}`;
   const getResp = await s3Client.send(
     new GetObjectCommand({ Bucket: BUCKET_NAME, Key: key }),
@@ -92,8 +118,6 @@ export const handler: APIGatewayProxyHandler = async (event, _context) => {
       }),
     );
   };
-
-  // manifest + segments
   await uploadFile(manifest, manifestKey);
   const files = fs.readdirSync("/tmp").filter((f) => f.match(/^seg\d{3}\.ts$/));
   await Promise.all(
@@ -110,9 +134,17 @@ export const handler: APIGatewayProxyHandler = async (event, _context) => {
   }
 
   logger.info("Processing complete", { manifestKey });
+
   return {
     statusCode: 200,
-    headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*" },
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "*",
+    },
     body: JSON.stringify({ manifestPath: manifestKey }),
   };
 };
+
+export const handler = middy(lambdaHandler).use(
+  parser({ schema: lambdaEventSchema, safeParse: true }),
+);

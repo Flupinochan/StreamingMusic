@@ -1,6 +1,3 @@
-// シンプルな REST API クライアント
-// 認証トークンは外部から provider を設定できる仕組みを用意
-
 import { getOwnUrl } from '@/presentation/utils/domain'
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
@@ -22,6 +19,7 @@ export type TokenProvider = () => Promise<string | undefined>
 
 let tokenProvider: TokenProvider = async () => undefined
 
+// POST等は認証が必要なため、これを利用してトークン取得用メソッドを設定
 export function setTokenProvider(provider: TokenProvider): void {
   tokenProvider = provider
 }

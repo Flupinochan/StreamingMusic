@@ -1,36 +1,63 @@
 process.env.POWERTOOLS_LOGGER_LOG_EVENT = "true";
 
 import { Logger } from "@aws-lambda-powertools/logger";
+import { JSONStringified } from "@aws-lambda-powertools/parser/helpers";
+import { parser } from "@aws-lambda-powertools/parser/middleware";
+import { APIGatewayProxyEventSchema } from "@aws-lambda-powertools/parser/schemas/api-gateway";
+import type { ParsedResult } from "@aws-lambda-powertools/parser/types";
 import {
   DeleteObjectsCommand,
   paginateListObjectsV2,
   S3Client,
 } from "@aws-sdk/client-s3";
-import type { APIGatewayProxyHandler } from "aws-lambda";
+import middy from "@middy/core";
+import type { APIGatewayProxyResult, Context } from "aws-lambda";
+import { z } from "zod";
 
 const BUCKET_NAME = process.env.BUCKET_NAME!;
 
 const s3Client = new S3Client();
 const logger = new Logger();
 
-interface DeleteS3FolderInput {
-  prefix: string;
-}
+const requestBodySchema = z.object({
+  prefix: z.string().min(1),
+});
 
-export const handler: APIGatewayProxyHandler = async (event, _context) => {
+const lambdaEventSchema = APIGatewayProxyEventSchema.extend({
+  body: JSONStringified(requestBodySchema),
+});
+
+type ParsedEvent = z.infer<typeof lambdaEventSchema>;
+type SafeParsedEvent = ParsedResult<ParsedEvent, ParsedEvent>;
+
+/**
+ * 指定したS3 prefix以下のオブジェクトを全て削除する
+ * ※proxy統合のため、API Gateway modelは利用せず、Lambda内でzodを使ってバリデーションを行う
+ * @param event
+ * @param context
+ * @returns
+ */
+const lambdaHandler = async (
+  event: SafeParsedEvent,
+  context: Context,
+): Promise<APIGatewayProxyResult> => {
+  logger.addContext(context);
   logger.logEventIfEnabled(event);
 
-  const body = event.body ? JSON.parse(event.body) : {};
-  const prefix = body.prefix;
-  if (!prefix) {
-    logger.error("Missing prefix in event", { event });
+  // middy, zodを利用したリクエストボディのバリデーション
+  if (!event.success) {
+    logger.error("Invalid request body", { error: event.error });
     return {
       statusCode: 400,
-      headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*" },
-      body: "Missing prefix",
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "*",
+      },
+      body: "Invalid request body",
     };
   }
 
+  const prefix = event.data.body.prefix;
   logger.info("Deleting objects with prefix", { prefix });
 
   // list objects
@@ -49,7 +76,10 @@ export const handler: APIGatewayProxyHandler = async (event, _context) => {
     logger.info("No objects found for prefix", { prefix });
     return {
       statusCode: 200,
-      headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*" },
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "*",
+      },
       body: JSON.stringify({ deletedCount: 0 }),
     };
   }
@@ -78,7 +108,14 @@ export const handler: APIGatewayProxyHandler = async (event, _context) => {
   logger.info("Deleted objects completed", { deletedCount, prefix });
   return {
     statusCode: 200,
-    headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*" },
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "*",
+    },
     body: JSON.stringify({ deletedCount }),
   };
 };
+
+export const handler = middy(lambdaHandler).use(
+  parser({ schema: lambdaEventSchema, safeParse: true }),
+);

@@ -3,6 +3,7 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as lambdaNodejs from "aws-cdk-lib/aws-lambda-nodejs";
 import * as logs from "aws-cdk-lib/aws-logs";
+import * as ssm from "aws-cdk-lib/aws-ssm";
 import { Construct } from "constructs";
 import * as path from "path";
 
@@ -50,6 +51,17 @@ export class GenerateUrlStack extends cdk.Stack {
       }),
     );
 
+    const powertoolsLayerArn = ssm.StringParameter.valueForStringParameter(
+      this,
+      "/aws/service/powertools/typescript/generic/all/latest",
+    );
+
+    const powertoolsLayer = lambda.LayerVersion.fromLayerVersionArn(
+      this,
+      "PowertoolsLayer",
+      powertoolsLayerArn,
+    );
+
     this.generateS3PresignedUrlFunction = new lambdaNodejs.NodejsFunction(
       this,
       "GenerateS3PresignedUrlFunction",
@@ -60,10 +72,15 @@ export class GenerateUrlStack extends cdk.Stack {
         memorySize: 128,
         role: this.generateS3PresignedUrlRole,
         logGroup: this.generateS3PresignedUrlLogGroup,
+        loggingFormat: lambda.LoggingFormat.JSON,
         handler: "index.handler",
         entry: path.join(__dirname, "generateUrl.ts"),
         environment: {
           BUCKET_NAME: props.bucketName,
+        },
+        layers: [powertoolsLayer],
+        bundling: {
+          externalModules: ["@aws-lambda-powertools/*"],
         },
       },
     );

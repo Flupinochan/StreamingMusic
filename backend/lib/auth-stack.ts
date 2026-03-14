@@ -45,7 +45,8 @@ export class AuthStack extends cdk.Stack {
       ],
     });
 
-    // S3へ音楽や画像をアップロードするための権限を付与
+    // 特に認可は付与しない
+    // 認証だけ行い、Lambda側で処理する
     this.identityPool = new identityPool.IdentityPool(this, "identitypool", {
       identityPoolName: `${stackName}-identitypool`,
       allowUnauthenticatedIdentities: true,
@@ -58,12 +59,5 @@ export class AuthStack extends cdk.Stack {
         ],
       },
     });
-    const bucketArn = `arn:aws:s3:::${props.bucketName}`;
-    this.identityPool.authenticatedRole.addToPrincipalPolicy(
-      new cdk.aws_iam.PolicyStatement({
-        actions: ["s3:*"],
-        resources: [bucketArn, `${bucketArn}/*`],
-      }),
-    );
   }
 }

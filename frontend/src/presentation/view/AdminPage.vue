@@ -91,7 +91,6 @@ const onFileSelected = async (event: Event): Promise<void> => {
   if (!input.files?.length) return
   const file = input.files[0]
   selectedMusicFile.value = file
-  // store title (filename without extension) and size
   const idx = file.name.lastIndexOf('.')
   selectedMusicTitle.value = idx > 0 ? file.name.slice(0, idx) : file.name
   selectedMusicBytes.value = file.size
@@ -184,7 +183,7 @@ async function createThumbnail(file: File, maxSize = 300): Promise<Blob> {
 const router = useRouter()
 const handleKeydown = (e: KeyboardEvent): void => {
   if (e.ctrlKey && e.altKey && e.shiftKey && e.key.toLowerCase() === 'a') {
-    router.push({ path: 'home' })
+    router.push({ name: 'home' })
   }
 }
 
@@ -194,6 +193,7 @@ onMounted(async () => {
   window.addEventListener('keydown', handleKeydown)
 
   try {
+    // getCurrentUserはサインイン済みの場合に成功し、失敗するとエラーがスローされる
     await getCurrentUser()
   } catch {
     router.push({ name: 'auth', query: { redirect: '/admin' } })

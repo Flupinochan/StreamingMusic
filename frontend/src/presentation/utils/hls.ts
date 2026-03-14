@@ -1,5 +1,5 @@
 /**
- * Hlsの型定義と動的インポートのユーティリティ関数
+ * Hlsの型定義と動的インポート
  */
 import type Hls from 'hls.js'
 

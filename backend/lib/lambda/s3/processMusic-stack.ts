@@ -3,6 +3,7 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as lambdaNodejs from "aws-cdk-lib/aws-lambda-nodejs";
 import * as logs from "aws-cdk-lib/aws-logs";
+import * as ssm from "aws-cdk-lib/aws-ssm";
 import { Construct } from "constructs";
 import * as path from "path";
 
@@ -25,6 +26,17 @@ export class ProcessMusicStack extends cdk.Stack {
       compatibleRuntimes: [lambda.Runtime.NODEJS_24_X],
       description: "FFmpeg binary for music processing",
     });
+
+    const powertoolsLayerArn = ssm.StringParameter.valueForStringParameter(
+      this,
+      "/aws/service/powertools/typescript/generic/all/latest",
+    );
+
+    const powertoolsLayer = lambda.LayerVersion.fromLayerVersionArn(
+      this,
+      "PowertoolsLayer",
+      powertoolsLayerArn,
+    );
 
     this.processMusicLogGroup = new logs.LogGroup(
       this,
@@ -60,15 +72,21 @@ export class ProcessMusicStack extends cdk.Stack {
         functionName: `${cdk.Stack.of(this).stackName.toLocaleLowerCase()}-processMusic`,
         runtime: lambda.Runtime.NODEJS_24_X,
         timeout: cdk.Duration.seconds(300),
+        // 音楽ファイルをダウンロードして処理するため多めに1GiBに設定
+        ephemeralStorageSize: cdk.Size.gibibytes(1),
         memorySize: 1024,
         role: this.processMusicRole,
         logGroup: this.processMusicLogGroup,
+        loggingFormat: lambda.LoggingFormat.JSON,
         handler: "index.handler",
         entry: path.join(__dirname, "processMusic.ts"),
         environment: {
           BUCKET_NAME: props.bucketName,
         },
-        layers: [this.ffmpegLayer],
+        layers: [this.ffmpegLayer, powertoolsLayer],
+        bundling: {
+          externalModules: ["@aws-lambda-powertools/*"],
+        },
       },
     );
   }

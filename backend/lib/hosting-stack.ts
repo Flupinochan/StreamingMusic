@@ -97,6 +97,7 @@ export class HostingStack extends cdk.Stack {
     });
   }
 
+  // API GatewayをCloudFrontのオリジンに追加するためのメソッド
   public addApiOrigin(api: apigateway.RestApi, apiPath: string) {
     const url = api.url;
     const domain = cdk.Fn.select(2, cdk.Fn.split("/", url));

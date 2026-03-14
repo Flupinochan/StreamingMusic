@@ -3,6 +3,7 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as lambdaNodejs from "aws-cdk-lib/aws-lambda-nodejs";
 import * as logs from "aws-cdk-lib/aws-logs";
+import * as ssm from "aws-cdk-lib/aws-ssm";
 import { Construct } from "constructs";
 import * as path from "path";
 import { DbStack } from "../../db-stack";
@@ -48,6 +49,17 @@ export class PostMetadataStack extends cdk.Stack {
       }),
     );
 
+    const powertoolsLayerArn = ssm.StringParameter.valueForStringParameter(
+      this,
+      "/aws/service/powertools/typescript/generic/all/latest",
+    );
+
+    const powertoolsLayer = lambda.LayerVersion.fromLayerVersionArn(
+      this,
+      "PowertoolsLayer",
+      powertoolsLayerArn,
+    );
+
     this.postMetadataFunction = new lambdaNodejs.NodejsFunction(
       this,
       "PostMetadataFunction",
@@ -58,10 +70,15 @@ export class PostMetadataStack extends cdk.Stack {
         memorySize: 128,
         role: this.postMetadataRole,
         logGroup: this.postMetadataLogGroup,
+        loggingFormat: lambda.LoggingFormat.JSON,
         handler: "index.handler",
         entry: path.join(__dirname, "postMetadata.ts"),
         environment: {
           TABLE_NAME: props.dbStack.musicMetadataTable.tableName,
+        },
+        layers: [powertoolsLayer],
+        bundling: {
+          externalModules: ["@aws-lambda-powertools/*"],
         },
       },
     );

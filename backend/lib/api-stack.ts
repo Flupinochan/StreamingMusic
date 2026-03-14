@@ -17,13 +17,11 @@ interface ApiStackProps extends cdk.StackProps {
 }
 
 export class ApiStack extends cdk.Stack {
-  // REST API for metadata and utilities
   public readonly metadataRestApi: apigateway.RestApi;
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
 
-    // set up a RestApi for all operations (metadata + utilities)
     const apiLogGroup = new cdk.aws_logs.LogGroup(this, "ApiGatewayLogGroup", {
       logGroupName: `/aws/apigateway/${cdk.Stack.of(this).stackName.toLowerCase()}-api`,
       retention: cdk.aws_logs.RetentionDays.ONE_DAY,
@@ -93,18 +91,18 @@ export class ApiStack extends cdk.Stack {
       },
     );
 
-    // metadata resource and methods (existing)
+    // Dynamodb music metadata API
     const musicResource =
       this.metadataRestApi.root.addResource("musicMetadata");
 
-    // GET (no auth)
+    /// GET (no auth)
     musicResource.addMethod(
       "GET",
       new apigateway.LambdaIntegration(props.getMetadataFunction),
       { authorizationType: apigateway.AuthorizationType.NONE },
     );
 
-    // POST (authenticated)
+    /// POST (authenticated)
     musicResource.addMethod(
       "POST",
       new apigateway.LambdaIntegration(props.postMetadataFunction),
@@ -118,7 +116,7 @@ export class ApiStack extends cdk.Stack {
       { authorizer, authorizationType: apigateway.AuthorizationType.COGNITO },
     );
 
-    // utility endpoints previously exposed via AppSync
+    // S3 API (authenticated)
     const genResource = this.metadataRestApi.root.addResource(
       "generateS3PresignedUrl",
     );

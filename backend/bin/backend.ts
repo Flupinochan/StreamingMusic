@@ -15,11 +15,12 @@ import { PipelineStack } from "../lib/pipeline-stack";
 
 const app = new cdk.App();
 const envName =
-  (app.node.tryGetContext("env") as string) || process.env.CDK_ENV || "prod";
+  (app.node.tryGetContext("env") as string) || process.env.CDK_ENV || "dev";
 const cfg = getEnvConfig(envName);
-const apiPath = "api";
 
 const baseName = "StreamMusic";
+const apiPath = "api";
+
 // 後からdevを追加したため互換性のためprodにはenv名を付けていない
 const suffix = cfg.name === "prod" ? "" : `-${cfg.name}`;
 const prefix = `${baseName}${suffix}`;
@@ -29,7 +30,6 @@ const hostingStack = new HostingStack(app, `${prefix}HostingStack`, {
   certificateArn: cfg.certificateArnParam,
 });
 
-// S3 バケット名はホスティングスタック名に "-bucket" を付けたもの（小文字）
 const hostingStackNameLower = `${prefix}HostingStack`.toLowerCase();
 const bucketName = `${hostingStackNameLower}-bucket`;
 
