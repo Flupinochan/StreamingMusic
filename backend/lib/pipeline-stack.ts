@@ -95,18 +95,30 @@ export class PipelineStack extends cdk.Stack {
             commands: [
               // musicディレクトリだけは削除されないように注意して同期
               `aws s3 sync frontend/dist/ s3://${props.hostingStack.bucket.bucketName}/ --delete --exclude "music/*"`,
-
-              // cache-controlを付与するファイルだけ再アップロード
+              // ハッシュ付きのbuild成果物だけ長期キャッシュ
+              `aws s3 cp frontend/dist/assets/ s3://${props.hostingStack.bucket.bucketName}/assets/ --recursive \
+                --cache-control "public, max-age=31536000, immutable"`,
+              // 更新検知に関わる固定ファイル名は毎回再検証
               `aws s3 cp frontend/dist/ s3://${props.hostingStack.bucket.bucketName}/ --recursive \
                 --exclude "*" \
-                --include "*.js" --include "*.css" --include "*.png" \
-                --include "*.jpg" --include "*.jpeg" --include "*.gif" \
-                --include "*.webp" --include "*.svg" --include "*.woff2" \
-                --include "*.ico" \
-                --cache-control "public, max-age=31536000, immutable"`,
-              // index.html with no-cache policy
-              `aws s3 cp frontend/dist/index.html s3://${props.hostingStack.bucket.bucketName}/index.html \
+                --include "index.html" \
+                --include "serviceWorker.js" \
+                --include "registerSW.js" \
+                --include "manifest.webmanifest" \
                 --cache-control "public, max-age=0, must-revalidate"`,
+              // アイコンやSEO向けファイルは短期キャッシュ
+              `aws s3 cp frontend/dist/ s3://${props.hostingStack.bucket.bucketName}/ --recursive \
+                --exclude "*" \
+                --include "favicon.ico" \
+                --include "favicon.png" \
+                --include "apple-touch-icon.png" \
+                --include "image-512x512.png" \
+                --include "icon-16x16.ico" \
+                --include "icon-32x32.ico" \
+                --include "robots.txt" \
+                --include "sitemap.xml" \
+                --include "screenshots.webp" \
+                --cache-control "public, max-age=86400"`,
               // finally invalidate CloudFront
               `aws cloudfront create-invalidation --distribution-id ${props.hostingStack.distribution.distributionId} --paths "/*"`,
             ],
