@@ -88,6 +88,16 @@ const createOfflineCacheMissResponse = (): Response => {
   })
 }
 
+// SPAの都合上、ナビゲーションリクエストのキャッシュはルート/と/index.htmlの両方を確認
+const getCachedNavigateResponse = async (): Promise<Response | undefined> => {
+  const cachedRootResponse = await caches.match('/')
+  if (cachedRootResponse) {
+    return cachedRootResponse
+  }
+
+  return caches.match('/index.html')
+}
+
 // 1度だけリトライ
 const sleep = (ms: number): Promise<void> => {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -107,11 +117,21 @@ const handleGetRequest = async (event: FetchEvent): Promise<Response> => {
   const request = event.request
   const isOfflineMode = await getOfflineMode()
   const { pathname } = new URL(request.url)
+  const isNavigationRequest = request.mode === 'navigate'
 
   // Offline Modeが有効な場合はキャッシュを返却するだけ
   if (isOfflineMode) {
     const cachedResponse = await caches.match(request)
-    return cachedResponse ?? createOfflineCacheMissResponse()
+    if (cachedResponse) {
+      return cachedResponse
+    }
+
+    if (isNavigationRequest) {
+      const cachedNavigateResponse = await getCachedNavigateResponse()
+      return cachedNavigateResponse ?? createOfflineCacheMissResponse()
+    }
+
+    return createOfflineCacheMissResponse()
   }
 
   // 音楽メタデータの場合はネットワーク優先
@@ -121,7 +141,7 @@ const handleGetRequest = async (event: FetchEvent): Promise<Response> => {
 
   // HTMLやService Worker関連のリクエストはネットワーク優先
   if (
-    request.mode === 'navigate' ||
+    isNavigationRequest ||
     pathname === '/' ||
     pathname === '/index.html' ||
     pathname === '/registerSW.js' ||

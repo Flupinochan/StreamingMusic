@@ -33,6 +33,7 @@
 
 <script setup lang="ts">
 import { useMusicPlayerStore } from '@/presentation/stores/useMusicPlayerStore'
+import { useMusicStore } from '@/presentation/stores/useMusicStore'
 import { getOwnUrl } from '@/presentation/utils/domain'
 import type { DetailProps } from '@/router'
 import { watch } from 'vue'
@@ -40,6 +41,7 @@ import { useRouter } from 'vue-router'
 
 const props = defineProps<DetailProps>()
 
+const musicStore = useMusicStore()
 const musicPlayerStore = useMusicPlayerStore()
 const router = useRouter()
 
@@ -48,6 +50,7 @@ watch(
   () => props.musicId,
   async (newId) => {
     if (!newId) return
+    await musicStore.listMusic()
     if (newId !== musicPlayerStore.playerState.musicId) {
       await musicPlayerStore.selectTrackById(newId)
     }
@@ -68,10 +71,11 @@ watch(
 watch(
   () => musicPlayerStore.tracks,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  (_tracks) => {
+  async (_tracks) => {
+    await musicStore.listMusic()
     const id = props.musicId
     if (id && !musicPlayerStore.playerState.musicId) {
-      musicPlayerStore.selectTrackById(id)
+      void musicPlayerStore.selectTrackById(id)
     }
   },
   { immediate: true },
