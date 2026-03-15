@@ -26,20 +26,14 @@ import { onUnmounted, ref } from 'vue'
 import { useMusicPlayerStore } from './presentation/stores/useMusicPlayerStore'
 
 const snackbar = ref(false)
-const BUILD_HASH = import.meta.env.VITE_BUILD_HASH
 
 const { needRefresh, updateServiceWorker } = useRegisterSW({
   onNeedRefresh() {
-    const lastVersion = localStorage.getItem('swVersion')
-    if (lastVersion !== BUILD_HASH) {
-      snackbar.value = true
-    }
+    snackbar.value = true
   },
 })
 
 async function onUpdate() {
-  localStorage.setItem('swVersion', BUILD_HASH)
-
   // Service Worker更新時に全てのキャッシュを削除
   const keys = await caches.keys()
   await Promise.all(keys.map((key) => caches.delete(key)))

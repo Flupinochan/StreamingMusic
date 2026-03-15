@@ -30,8 +30,9 @@ export default defineConfig({
       filename: './tmp/stats.html',
     }),
     VitePWA({
-      // HTMLで利用するサイトのアイコン等(publicフォルダ)をキャッシュ (FCPに影響するため最小限)
-      includeAssets: ['favicon.ico'],
+      // HTMLで利用するサイトのアイコン等(publicフォルダ)をキャッシュ
+      // (FCPに影響するためしない、css, jsファイル同様にService Worker側でruntimeキャッシュする)
+      includeManifestIcons: false, // デフォルトで全てのico, pngが含まれる
       // manifest.json
       manifest: {
         name: 'MetalMental Music',
@@ -122,16 +123,16 @@ export default defineConfig({
       // service workerファイル指定
       srcDir: 'src/sw/',
       filename: 'serviceWorker.ts',
-      // build成果物をプリキャッシュ
+      // build成果物をprecacheしない
+      // (ServiceWorker内でruntimeキャッシュする。build成果物全てprecacheされるとdynamic importの意味がなくなるため)
+      injectManifest: {
+        globPatterns: [],
+        injectionPoint: undefined,
+      },
       strategies: 'injectManifest',
-      // injectManifest: {
-      //   globPatterns: ['**/*.{js,css,html,ico,png,jpg,jpeg,svg,woff2,json,yaml,txt,webp,avif,ts}'],
-      //   globIgnores: ['**/*.gif'],
-      //   maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
-      // },
-      // Service Worker登録/更新方法
+      // Service Worker登録/更新方法 (App.vue側で手動制御)
       registerType: 'prompt',
-      injectRegister: 'script-defer',
+      injectRegister: false,
       workbox: {
         // 即初期化しない
         clientsClaim: true,

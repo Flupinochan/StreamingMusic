@@ -5,7 +5,6 @@ import { UserSettingsRepositoryImpl } from '@/infrastructure/repositories/userSe
 import { UserSettingsRepositoryIndexedDB } from '@/infrastructure/repositories/userSettingsRepositoryIndexedDB'
 import { CacheableResponsePlugin } from 'workbox-cacheable-response'
 import { cacheNames, clientsClaim, setCacheNameDetails } from 'workbox-core'
-import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching'
 import { RangeRequestsPlugin } from 'workbox-range-requests'
 import { CacheFirst, NetworkFirst } from 'workbox-strategies'
 
@@ -17,6 +16,16 @@ const userSettingsRepository = new UserSettingsRepositoryImpl(new UserSettingsRe
 
 // GET: 音楽メタデータはネットワーク優先
 const musicMetadataStrategy = new NetworkFirst({
+  cacheName: cacheNames.runtime,
+  plugins: [
+    new CacheableResponsePlugin({
+      statuses: [0, 200],
+    }),
+  ],
+})
+
+// GET: HTMLやService Worker関連はネットワーク優先
+const updateSensitiveStrategy = new NetworkFirst({
   cacheName: cacheNames.runtime,
   plugins: [
     new CacheableResponsePlugin({
@@ -48,12 +57,17 @@ setCacheNameDetails({
 /// Vite PWA 仕様上必須コード
 /////////////////////////////
 clientsClaim()
-// 即座にService Workerを有効化しない
-// self.skipWaiting()
+// App.vueのupdateServiceWorker()を受け取るためのmessageイベントリスナー
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    // Service Workerをactivate
+    self.skipWaiting()
+  }
+})
 // バージョンアップ時に古いprecacheを削除
-cleanupOutdatedCaches()
+// cleanupOutdatedCaches()
 // vite.config.tsに記載されている静的ファイル(injectManifest)をprecache
-precacheAndRoute(self.__WB_MANIFEST)
+// precacheAndRoute(self.__WB_MANIFEST)
 /////////////////////////////
 
 const getOfflineMode = async (): Promise<boolean> => {
@@ -78,6 +92,7 @@ const createOfflineCacheMissResponse = (): Response => {
 const handleGetRequest = async (event: FetchEvent): Promise<Response> => {
   const request = event.request
   const isOfflineMode = await getOfflineMode()
+  const { pathname } = new URL(request.url)
 
   // Offline Modeが有効な場合はキャッシュを返却するだけ
   if (isOfflineMode) {
@@ -86,8 +101,20 @@ const handleGetRequest = async (event: FetchEvent): Promise<Response> => {
   }
 
   // 音楽メタデータの場合はネットワーク優先
-  if (new URL(request.url).pathname === '/api/musicMetadata') {
+  if (pathname === '/api/musicMetadata') {
     return musicMetadataStrategy.handle({ event, request })
+  }
+
+  // HTMLやService Worker関連のリクエストはネットワーク優先
+  if (
+    request.mode === 'navigate' ||
+    pathname === '/' ||
+    pathname === '/index.html' ||
+    pathname === '/registerSW.js' ||
+    pathname === '/serviceWorker.js' ||
+    pathname === '/manifest.webmanifest'
+  ) {
+    return updateSensitiveStrategy.handle({ event, request })
   }
 
   // その他はキャッシュ優先
