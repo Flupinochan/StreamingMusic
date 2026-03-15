@@ -156,7 +156,7 @@
             :disabled="musicPlayerStore.downloadStatus.status === 'downloading'"
             :color="musicStore.isOfflineMode ? 'primary' : 'on-surface'"
             block
-            @click="musicStore.toggleOfflineMode()"
+            @click="handleOfflineModeClick()"
           >
             {{ musicStore.isOfflineMode ? 'オフラインモード: ON' : 'オフラインモード: OFF' }}
           </v-btn>
@@ -197,6 +197,10 @@ import { useResponsiveButton } from '@/presentation/composables/useResponsiveBut
 import { useMusicPlayerStore } from '@/presentation/stores/useMusicPlayerStore'
 import { useMusicStore } from '@/presentation/stores/useMusicStore'
 import { getOwnUrl } from '@/presentation/utils/domain'
+import {
+  SET_OFFLINE_MODE_MESSAGE_TYPE,
+  type SetOfflineModeMessage,
+} from '@/shared/serviceWorkerMessages'
 import type { MusicMetadataDto } from '@/use_cases/musicMetadataDto'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -206,6 +210,14 @@ const musicPlayerStore = useMusicPlayerStore()
 const musicStore = useMusicStore()
 const router = useRouter()
 const snackbar = ref(false)
+
+const syncOfflineModeWithServiceWorker = (enabled: boolean): void => {
+  const message: SetOfflineModeMessage = {
+    type: SET_OFFLINE_MODE_MESSAGE_TYPE,
+    enabled,
+  }
+  navigator.serviceWorker.controller?.postMessage(message)
+}
 
 const sliderSeconds = computed<number>({
   get: () => musicPlayerStore.playerState.positionSeconds,
@@ -219,10 +231,14 @@ const handleDownload = async (): Promise<void> => {
   snackbar.value = true
 }
 
+const handleOfflineModeClick = (): void => {
+  const nextIsOfflineMode = musicStore.toggleOfflineMode()
+  syncOfflineModeWithServiceWorker(nextIsOfflineMode)
+}
+
 onMounted(() => {
-  requestIdleCallback(() => {
-    musicStore.getUserSettings()
-  })
+  musicStore.setOfflineMode(false)
+  syncOfflineModeWithServiceWorker(false)
 
   if ('mediaSession' in navigator) {
     const actionHandlers: [MediaSessionAction, (...args: unknown[]) => void][] = [

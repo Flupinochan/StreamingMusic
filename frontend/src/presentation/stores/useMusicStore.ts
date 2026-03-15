@@ -2,7 +2,6 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { useMusicPlayerStore } from './useMusicPlayerStore'
 
-import type { UserSettingsRepository } from '@/domain/repositories/userSettings'
 import type { ListMusicMetadataUsecase } from '@/use_cases/listMusicMetadataUsecase'
 import type { CreateMusicDto } from '../../use_cases/createMusicDto'
 import type { CreateMusicUsecase } from '../../use_cases/createMusicUsecase'
@@ -14,7 +13,6 @@ export const useMusicStore = defineStore('music', () => {
   let createMusicUsecase: CreateMusicUsecase | undefined = undefined
   let removeMusicUsecase: RemoveMusicUsecase | undefined = undefined
   let listMusicMetadataUsecase: ListMusicMetadataUsecase | undefined = undefined
-  let userSettingsRepository: UserSettingsRepository | undefined = undefined
   const musicPlayerStore = useMusicPlayerStore()
 
   // UI State
@@ -49,15 +47,6 @@ export const useMusicStore = defineStore('music', () => {
     return listMusicMetadataUsecase
   }
 
-  const getUserSettingsRepository = (): UserSettingsRepository => {
-    if (!userSettingsRepository) {
-      throw new Error(
-        'UserSettingsRepository is not set. Call useMusicStore(pinia).setUserSettingsRepository() in main.ts.',
-      )
-    }
-    return userSettingsRepository
-  }
-
   // DI用Setter
   const setCreateMusicUsecase = (value: CreateMusicUsecase): void => {
     createMusicUsecase = value
@@ -69,10 +58,6 @@ export const useMusicStore = defineStore('music', () => {
 
   const setListMusicMetadataUsecase = (value: ListMusicMetadataUsecase): void => {
     listMusicMetadataUsecase = value
-  }
-
-  const setUserSettingsRepository = (value: UserSettingsRepository): void => {
-    userSettingsRepository = value
   }
 
   const listMusic = async (): Promise<void> => {
@@ -124,33 +109,27 @@ export const useMusicStore = defineStore('music', () => {
     }
   }
 
-  async function getUserSettings() {
-    const repo = getUserSettingsRepository()
-    const userSettings = await repo.get()
-    isOfflineMode.value = userSettings.isOfflineMode
-    return userSettings
+  const setOfflineMode = (value: boolean): void => {
+    isOfflineMode.value = value
   }
 
-  async function toggleOfflineMode(): Promise<void> {
-    const repo = getUserSettingsRepository()
-    const settings = await repo.get()
-    const nextIsOfflineMode = !settings.isOfflineMode
-    await repo.save({ ...settings, isOfflineMode: nextIsOfflineMode })
+  const toggleOfflineMode = (): boolean => {
+    const nextIsOfflineMode = !isOfflineMode.value
     isOfflineMode.value = nextIsOfflineMode
+    return nextIsOfflineMode
   }
 
   return {
     setCreateMusicUsecase,
     setRemoveMusicUsecase,
     setListMusicMetadataUsecase,
-    setUserSettingsRepository,
+    setOfflineMode,
     isOfflineMode,
     loading,
     error,
     uploadMusic,
     removeMusic,
     listMusic,
-    getUserSettings,
     toggleOfflineMode,
   }
 })

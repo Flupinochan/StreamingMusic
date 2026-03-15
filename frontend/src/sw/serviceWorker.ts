@@ -1,8 +1,7 @@
 // workbox-recipes を参考
 // https://developer.chrome.com/docs/workbox/modules/workbox-recipes?hl=ja
 
-import { UserSettingsRepositoryImpl } from '@/infrastructure/repositories/userSettingsRepositoryImpl'
-import { UserSettingsRepositoryIndexedDB } from '@/infrastructure/repositories/userSettingsRepositoryIndexedDB'
+import { SET_OFFLINE_MODE_MESSAGE_TYPE } from '@/shared/serviceWorkerMessages'
 import { CacheableResponsePlugin } from 'workbox-cacheable-response'
 import { cacheNames, clientsClaim, setCacheNameDetails } from 'workbox-core'
 import { RangeRequestsPlugin } from 'workbox-range-requests'
@@ -12,7 +11,7 @@ declare let self: ServiceWorkerGlobalScope
 const BUILD_HASH = import.meta.env.VITE_BUILD_HASH
 
 const POST_CACHE_NAME = `music-metalmental-post-${BUILD_HASH}`
-const userSettingsRepository = new UserSettingsRepositoryImpl(new UserSettingsRepositoryIndexedDB())
+let isOfflineMode = false
 
 // GET: 音楽メタデータはネットワーク優先
 const musicMetadataStrategy = new NetworkFirst({
@@ -62,6 +61,11 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     // Service Workerをactivate
     self.skipWaiting()
+    return
+  }
+
+  if (event.data && event.data.type === SET_OFFLINE_MODE_MESSAGE_TYPE) {
+    isOfflineMode = event.data.enabled === true
   }
 })
 // バージョンアップ時に古いprecacheを削除
@@ -69,15 +73,6 @@ self.addEventListener('message', (event) => {
 // vite.config.tsに記載されている静的ファイル(injectManifest)をprecache
 // precacheAndRoute(self.__WB_MANIFEST)
 /////////////////////////////
-
-const getOfflineMode = async (): Promise<boolean> => {
-  try {
-    const settings = await userSettingsRepository.get()
-    return settings.isOfflineMode
-  } catch {
-    return false
-  }
-}
 
 const createOfflineCacheMissResponse = (): Response => {
   return new Response('Offline mode is enabled and no cached data was found.', {
@@ -115,7 +110,6 @@ const retryGetOnce = async (requestHandler: () => Promise<Response>): Promise<Re
 // GETリクエスト処理
 const handleGetRequest = async (event: FetchEvent): Promise<Response> => {
   const request = event.request
-  const isOfflineMode = await getOfflineMode()
   const { pathname } = new URL(request.url)
   const isNavigationRequest = request.mode === 'navigate'
 
@@ -161,7 +155,6 @@ const handlePostRequest = async (event: FetchEvent): Promise<Response> => {
   const cache = await caches.open(POST_CACHE_NAME)
   const body = await req.clone().text()
   const key = req.url + '|' + body
-  const isOfflineMode = await getOfflineMode()
 
   if (isOfflineMode) {
     const cachedResponse = await cache.match(key)
