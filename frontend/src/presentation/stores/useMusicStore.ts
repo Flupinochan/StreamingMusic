@@ -13,6 +13,7 @@ export const useMusicStore = defineStore('music', () => {
   let createMusicUsecase: CreateMusicUsecase | undefined = undefined
   let removeMusicUsecase: RemoveMusicUsecase | undefined = undefined
   let listMusicMetadataUsecase: ListMusicMetadataUsecase | undefined = undefined
+  let listMusicPromise: Promise<void> | undefined = undefined
   const musicPlayerStore = useMusicPlayerStore()
 
   // UI State
@@ -61,20 +62,30 @@ export const useMusicStore = defineStore('music', () => {
   }
 
   const listMusic = async (): Promise<void> => {
+    // 複数個所でlistしているため、重複リクエストを排除
+    if (listMusicPromise) {
+      return listMusicPromise
+    }
+
     loading.value = true
     error.value = undefined
     const usecase = getListMusicMetadataUsecase()
 
-    try {
-      const dtos = await usecase.listMusicMetadata()
+    listMusicPromise = (async () => {
+      try {
+        const dtos = await usecase.listMusicMetadata()
 
-      musicPlayerStore.setTracks(dtos)
-    } catch (e) {
-      const errorMessage = e instanceof Error ? e.message : ''
-      error.value = `音楽リストの取得に失敗しました: ${errorMessage}`
-    } finally {
-      loading.value = false
-    }
+        musicPlayerStore.setTracks(dtos)
+      } catch (e) {
+        const errorMessage = e instanceof Error ? e.message : ''
+        error.value = `音楽リストの取得に失敗しました: ${errorMessage}`
+      } finally {
+        loading.value = false
+        listMusicPromise = undefined
+      }
+    })()
+
+    return listMusicPromise
   }
 
   async function uploadMusic(dto: CreateMusicDto): Promise<void> {

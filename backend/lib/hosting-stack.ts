@@ -16,6 +16,7 @@ interface HostingStackProps extends cdk.StackProps {
 export class HostingStack extends cdk.Stack {
   public readonly bucket: s3.Bucket;
   public readonly distribution: cloudfront.Distribution;
+  private readonly apiGetCachePolicy: cloudfront.CachePolicy;
 
   constructor(scope: Construct, id: string, props: HostingStackProps) {
     super(scope, id, props);
@@ -95,6 +96,21 @@ export class HostingStack extends cdk.Stack {
         },
       ],
     });
+
+    // GETは短期間(300秒)キャッシュ
+    this.apiGetCachePolicy = new cloudfront.CachePolicy(
+      this,
+      "ApiGetCachePolicy",
+      {
+        cachePolicyName: `${stackName}-api-get-cache-policy`,
+        comment: "Short-lived cache for API GET and HEAD requests.",
+        defaultTtl: cdk.Duration.seconds(300),
+        minTtl: cdk.Duration.seconds(0),
+        maxTtl: cdk.Duration.minutes(5),
+        enableAcceptEncodingBrotli: true,
+        enableAcceptEncodingGzip: true,
+      },
+    );
   }
 
   // API GatewayをCloudFrontのオリジンに追加するためのメソッド
@@ -107,7 +123,8 @@ export class HostingStack extends cdk.Stack {
 
     this.distribution.addBehavior(`/${apiPath}/*`, origin, {
       allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
-      cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+      cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD,
+      cachePolicy: this.apiGetCachePolicy,
       viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
       originRequestPolicy:
         cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,

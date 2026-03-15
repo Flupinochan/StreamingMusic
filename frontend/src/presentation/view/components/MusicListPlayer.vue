@@ -59,15 +59,7 @@ const musicPlayerStore = useMusicPlayerStore()
 
 onMounted(() => {
   // アイドル時に処理することで、初期表示の高速化を図る
-  requestIdleCallback(
-    () => {
-      if (musicPlayerStore.tracks.length === 0) {
-        musicStore.listMusic()
-        loadHls()
-      }
-    },
-    { timeout: 3000 },
-  )
+  requestIdleCallback(() => loadHls(), { timeout: 3000 })
 })
 
 const selectedIds = computed<string[]>({

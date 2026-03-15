@@ -13,6 +13,16 @@ const TABLE_NAME = process.env.TABLE_NAME!;
 
 const ddbClient = DynamoDBDocumentClient.from(new DynamoDBClient());
 const logger = new Logger();
+const defaultHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "*",
+};
+const successHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "*",
+  "Cache-Control":
+    "public, max-age=300, s-maxage=300, stale-while-revalidate=300",
+};
 
 const lambdaEventSchema = APIGatewayProxyEventSchema;
 
@@ -30,10 +40,7 @@ const lambdaHandler = async (
     logger.error("Invalid request", { error: event.error });
     return {
       statusCode: 400,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "*",
-      },
+      headers: defaultHeaders,
       body: "Invalid request",
     };
   }
@@ -57,24 +64,18 @@ const lambdaHandler = async (
       items.push(parsed.data);
     }
 
-    logger.info("Retrieved metadata list", { items });
+    logger.info("Retrieved metadata list", { count: items.length });
 
     return {
       statusCode: 200,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "*",
-      },
+      headers: successHeaders,
       body: JSON.stringify(items),
     };
   } catch (err) {
     logger.error("scan failed", { error: err });
     return {
       statusCode: 500,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "*",
-      },
+      headers: defaultHeaders,
       body: JSON.stringify({ message: "Internal server error" }),
     };
   }

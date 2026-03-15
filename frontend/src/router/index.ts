@@ -1,3 +1,4 @@
+import HomePage from '@/presentation/view/HomePage.vue'
 import type { Component } from 'vue'
 import { createRouter, createWebHistory, type RouteLocationNormalized } from 'vue-router'
 
@@ -6,11 +7,12 @@ export type DetailProps = {
 }
 
 // 基本的にdynamic importでコード分割すべき
+// HomePageの分割は無駄
 const routes = [
   {
     path: '/',
     name: 'home',
-    component: (): Promise<{ default: Component }> => import('@/presentation/view/HomePage.vue'),
+    component: HomePage,
   },
   {
     name: 'detail',

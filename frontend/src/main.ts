@@ -90,8 +90,13 @@ const musicMetadataRepository = new MusicMetadataRepositoryImpl(
 const createMusicUsecase = new CreateMusicUsecase(musicRepository, musicMetadataRepository)
 const removeMusicUsecase = new RemoveMusicUsecase(musicRepository, musicMetadataRepository)
 const listMusicMetadataUsecase = new ListMusicMetadataUsecase(musicMetadataRepository)
-useMusicStore(pinia).setCreateMusicUsecase(createMusicUsecase)
-useMusicStore(pinia).setRemoveMusicUsecase(removeMusicUsecase)
-useMusicStore(pinia).setListMusicMetadataUsecase(listMusicMetadataUsecase)
+const musicStore = useMusicStore(pinia)
+musicStore.setCreateMusicUsecase(createMusicUsecase)
+musicStore.setRemoveMusicUsecase(removeMusicUsecase)
+musicStore.setListMusicMetadataUsecase(listMusicMetadataUsecase)
+
+// APIからのデータの取得は時間がかかるためawaitせずに早めに裏で実行しておく
+// FCPよりLCPの方が重要
+void musicStore.listMusic()
 
 app.mount('#app')
