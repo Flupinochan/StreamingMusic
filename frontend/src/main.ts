@@ -21,6 +21,8 @@ import { MusicDataRepositoryImpl } from './infrastructure/repositories/musicData
 import { MusicDataRepositoryRest } from './infrastructure/repositories/musicDataRepositoryRest'
 import { MusicMetadataRepositoryImpl } from './infrastructure/repositories/musicMetadataRepositoryImpl'
 import { MusicMetadataRepositoryRest } from './infrastructure/repositories/musicMetadataRepositoryRest'
+import { UserSettingsRepositoryImpl } from './infrastructure/repositories/userSettingsRepositoryImpl'
+import { UserSettingsRepositoryIndexedDB } from './infrastructure/repositories/userSettingsRepositoryIndexedDB'
 import { useMusicStore } from './presentation/stores/useMusicStore'
 import { router } from './router'
 import { CreateMusicUsecase } from './use_cases/createMusicUsecase'
@@ -90,8 +92,10 @@ const musicMetadataRepository = new MusicMetadataRepositoryImpl(
 const createMusicUsecase = new CreateMusicUsecase(musicRepository, musicMetadataRepository)
 const removeMusicUsecase = new RemoveMusicUsecase(musicRepository, musicMetadataRepository)
 const listMusicMetadataUsecase = new ListMusicMetadataUsecase(musicMetadataRepository)
+const userSettingsRepository = new UserSettingsRepositoryImpl(new UserSettingsRepositoryIndexedDB())
 useMusicStore(pinia).setCreateMusicUsecase(createMusicUsecase)
 useMusicStore(pinia).setRemoveMusicUsecase(removeMusicUsecase)
 useMusicStore(pinia).setListMusicMetadataUsecase(listMusicMetadataUsecase)
+useMusicStore(pinia).setUserSettingsRepository(userSettingsRepository)
 
 app.mount('#app')

@@ -144,12 +144,35 @@
         </v-col>
       </v-row>
     </div>
+
+    <div class="container-fluid mt-5">
+      <v-row align="center" class="ga-4">
+        <v-col>
+          <v-btn
+            :size="btnSize"
+            :aria-label="
+              musicStore.isOfflineMode ? 'オフラインモードを無効' : 'オフラインモードを有効'
+            "
+            :color="musicStore.isOfflineMode ? 'primary' : 'on-surface'"
+            variant="elevated"
+            block
+            @click="musicStore.toggleOfflineMode()"
+          >
+            {{ musicStore.isOfflineMode ? 'オフラインモード: ON' : 'オフラインモード: OFF' }}
+          </v-btn>
+        </v-col>
+        <v-col>
+          <v-btn :size="btnSize" block> test2 </v-btn>
+        </v-col>
+      </v-row>
+    </div>
   </v-footer>
 </template>
 
 <script setup lang="ts">
 import { useResponsiveButton } from '@/presentation/composables/useResponsiveButton'
 import { useMusicPlayerStore } from '@/presentation/stores/useMusicPlayerStore'
+import { useMusicStore } from '@/presentation/stores/useMusicStore'
 import { getOwnUrl } from '@/presentation/utils/domain'
 import type { MusicMetadataDto } from '@/use_cases/musicMetadataDto'
 import { computed, onMounted, watch } from 'vue'
@@ -157,6 +180,7 @@ import { useRouter } from 'vue-router'
 
 const { btnSize } = useResponsiveButton()
 const musicPlayerStore = useMusicPlayerStore()
+const musicStore = useMusicStore()
 const router = useRouter()
 
 const sliderSeconds = computed<number>({
@@ -167,6 +191,10 @@ const sliderSeconds = computed<number>({
 })
 
 onMounted(() => {
+  requestIdleCallback(() => {
+    musicStore.getUserSettings()
+  })
+
   if ('mediaSession' in navigator) {
     const actionHandlers: [MediaSessionAction, (...args: unknown[]) => void][] = [
       ['play', (): Promise<void> => musicPlayerStore.play()],

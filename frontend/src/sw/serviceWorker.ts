@@ -1,17 +1,40 @@
 // workbox-recipes を参考
 // https://developer.chrome.com/docs/workbox/modules/workbox-recipes?hl=ja
 
+import { UserSettingsRepositoryImpl } from '@/infrastructure/repositories/userSettingsRepositoryImpl'
+import { UserSettingsRepositoryIndexedDB } from '@/infrastructure/repositories/userSettingsRepositoryIndexedDB'
 import { CacheableResponsePlugin } from 'workbox-cacheable-response'
 import { cacheNames, clientsClaim, setCacheNameDetails } from 'workbox-core'
 import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching'
 import { RangeRequestsPlugin } from 'workbox-range-requests'
-import { registerRoute } from 'workbox-routing'
 import { CacheFirst, NetworkFirst } from 'workbox-strategies'
 
 declare let self: ServiceWorkerGlobalScope
 const BUILD_HASH = import.meta.env.VITE_BUILD_HASH
 
 const POST_CACHE_NAME = `music-metalmental-post-${BUILD_HASH}`
+const userSettingsRepository = new UserSettingsRepositoryImpl(new UserSettingsRepositoryIndexedDB())
+
+// GET: 音楽メタデータはネットワーク優先
+const musicMetadataStrategy = new NetworkFirst({
+  cacheName: cacheNames.runtime,
+  plugins: [
+    new CacheableResponsePlugin({
+      statuses: [0, 200],
+    }),
+  ],
+})
+
+// GET: その他のリクエストはキャッシュ優先
+const getCacheStrategy = new CacheFirst({
+  cacheName: cacheNames.runtime,
+  plugins: [
+    new CacheableResponsePlugin({
+      statuses: [0, 200],
+    }),
+    new RangeRequestsPlugin(),
+  ],
+})
 
 // precacheおよびruntime cache名の設定
 setCacheNameDetails({
@@ -33,67 +56,89 @@ cleanupOutdatedCaches()
 precacheAndRoute(self.__WB_MANIFEST)
 /////////////////////////////
 
-/// runtime cache設定
-// /api/musicMetadata の GET は Network First (最新データ優先)
-registerRoute(
-  ({ url, request }) => request.method === 'GET' && url.pathname === '/api/musicMetadata',
-  new NetworkFirst({
-    cacheName: cacheNames.runtime,
-    plugins: [
-      new CacheableResponsePlugin({
-        statuses: [0, 200],
-      }),
-    ],
-  }),
-  'GET',
-)
+const getOfflineMode = async (): Promise<boolean> => {
+  try {
+    const settings = await userSettingsRepository.get()
+    return settings.isOfflineMode
+  } catch {
+    return false
+  }
+}
 
-// GETは全てキャッシュ
-registerRoute(
-  () => true,
-  // Cache優先
-  new CacheFirst({
-    cacheName: cacheNames.runtime,
-    plugins: [
-      // キャッシュ対象のHttpStatusCode
-      new CacheableResponsePlugin({
-        statuses: [0, 200],
-      }),
-      // Hls rangeヘッダー最適化用
-      new RangeRequestsPlugin(),
-    ],
-  }),
-  'GET',
-)
+const createOfflineCacheMissResponse = (): Response => {
+  return new Response('Offline mode is enabled and no cached data was found.', {
+    status: 503,
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+    },
+  })
+}
 
-// POSTも全てキャッシュ
+// GETリクエスト処理
+const handleGetRequest = async (event: FetchEvent): Promise<Response> => {
+  const request = event.request
+  const isOfflineMode = await getOfflineMode()
+
+  // Offline Modeが有効な場合はキャッシュを返却するだけ
+  if (isOfflineMode) {
+    const cachedResponse = await caches.match(request)
+    return cachedResponse ?? createOfflineCacheMissResponse()
+  }
+
+  // 音楽メタデータの場合はネットワーク優先
+  if (new URL(request.url).pathname === '/api/musicMetadata') {
+    return musicMetadataStrategy.handle({ event, request })
+  }
+
+  // その他はキャッシュ優先
+  return getCacheStrategy.handle({ event, request })
+}
+
+// POSTリクエスト処理
+const handlePostRequest = async (event: FetchEvent): Promise<Response> => {
+  const req = event.request
+  const cache = await caches.open(POST_CACHE_NAME)
+  const body = await req.clone().text()
+  const key = req.url + '|' + body
+  const isOfflineMode = await getOfflineMode()
+
+  if (isOfflineMode) {
+    const cachedResponse = await cache.match(key)
+    return cachedResponse ?? createOfflineCacheMissResponse()
+  }
+
+  try {
+    // 1. ネットワーク優先
+    const response = await fetch(req.clone())
+    if (!response || response.status !== 200) {
+      throw new Error('Network response was not ok')
+    }
+    // キャッシュを更新
+    await cache.put(new Request(key), response.clone())
+    return response
+  } catch {
+    // 2. ネットワーク失敗時はキャッシュを返却
+    const cachedRes = await cache.match(key)
+    if (cachedRes) return cachedRes
+    // キャッシュもなければエラー
+    return new Response('Network error and no cached data', { status: 503 })
+  }
+}
+
 self.addEventListener('fetch', (event) => {
   const req = event.request
+  const url = new URL(req.url)
+
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return
+  }
+
+  if (req.method === 'GET') {
+    event.respondWith(handleGetRequest(event))
+    return
+  }
 
   if (req.method === 'POST') {
-    event.respondWith(
-      (async () => {
-        const cache = await caches.open(POST_CACHE_NAME)
-        const body = await req.clone().text()
-        const key = req.url + '|' + body
-
-        try {
-          // 1. ネットワーク優先
-          const response = await fetch(req.clone())
-          if (!response || response.status !== 200) {
-            throw new Error('Network response was not ok')
-          }
-          // キャッシュを更新
-          await cache.put(new Request(key), response.clone())
-          return response
-        } catch {
-          // 2. ネットワーク失敗時はキャッシュを返却
-          const cachedRes = await cache.match(key)
-          if (cachedRes) return cachedRes
-          // キャッシュもなければエラー
-          return new Response('Network error and no cached data', { status: 503 })
-        }
-      })(),
-    )
+    event.respondWith(handlePostRequest(event))
   }
 })
