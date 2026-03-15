@@ -5,6 +5,7 @@ import type { MusicMetadataDto } from '@/use_cases/musicMetadataDto'
 import { HlsPlayerEngine } from '../service/player/hlsPlayerEngine'
 import type { PlayerEngine } from '../service/player/playerEngine'
 import { getOwnUrl } from '../utils/domain'
+import { loadHls } from '../utils/hls'
 import { formatSecondsToMMSS } from '../utils/time'
 
 export type PlayerStatus = 'stopped' | 'playing' | 'paused'
@@ -396,13 +397,16 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
   const downloadStatus = ref<DownloadStatus>({ status: 'idle' })
   const downloadAllTracks = async (): Promise<void> => {
     downloadStatus.value = { status: 'downloading' }
-    const urls: string[] = []
 
+    await loadHls()
+
+    const urls: string[] = []
     totalDownloadCount.value = 0
     completedDownloadCount.value = 0
 
     for (const track of tracks.value) {
       try {
+        // manifestファイルから音楽segmentファイルのURLを取得
         const manifestUrl = new URL(track.manifestPath, getOwnUrl()).toString()
         const manifestResponse = await fetch(manifestUrl)
         if (!manifestResponse.ok) continue
@@ -415,7 +419,8 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
           .filter((line) => line !== '' && !line.startsWith('#'))
 
         urls.push(...lines.map((line) => new URL(line, manifestUrl).toString()))
-      } catch {
+      } catch (error) {
+        console.log(error)
         continue
       }
     }

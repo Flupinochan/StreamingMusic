@@ -88,6 +88,20 @@ const createOfflineCacheMissResponse = (): Response => {
   })
 }
 
+// 1度だけリトライ
+const sleep = (ms: number): Promise<void> => {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+const retryGetOnce = async (requestHandler: () => Promise<Response>): Promise<Response> => {
+  try {
+    return await requestHandler()
+  } catch {
+    await sleep(300)
+    return requestHandler()
+  }
+}
+
 // GETリクエスト処理
 const handleGetRequest = async (event: FetchEvent): Promise<Response> => {
   const request = event.request
@@ -102,7 +116,7 @@ const handleGetRequest = async (event: FetchEvent): Promise<Response> => {
 
   // 音楽メタデータの場合はネットワーク優先
   if (pathname === '/api/musicMetadata') {
-    return musicMetadataStrategy.handle({ event, request })
+    return retryGetOnce(() => musicMetadataStrategy.handle({ event, request }))
   }
 
   // HTMLやService Worker関連のリクエストはネットワーク優先
@@ -114,7 +128,7 @@ const handleGetRequest = async (event: FetchEvent): Promise<Response> => {
     pathname === '/serviceWorker.js' ||
     pathname === '/manifest.webmanifest'
   ) {
-    return updateSensitiveStrategy.handle({ event, request })
+    return retryGetOnce(() => updateSensitiveStrategy.handle({ event, request }))
   }
 
   // その他はキャッシュ優先

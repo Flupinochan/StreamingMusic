@@ -50,6 +50,7 @@
 import { useMusicPlayerStore } from '@/presentation/stores/useMusicPlayerStore'
 import { useMusicStore } from '@/presentation/stores/useMusicStore'
 import { getOwnUrl } from '@/presentation/utils/domain'
+import { loadHls } from '@/presentation/utils/hls'
 import type { MusicMetadataDto } from '@/use_cases/musicMetadataDto'
 import { computed, onMounted } from 'vue'
 
@@ -62,6 +63,7 @@ onMounted(() => {
     () => {
       if (musicPlayerStore.tracks.length === 0) {
         musicStore.listMusic()
+        loadHls()
       }
     },
     { timeout: 3000 },
