@@ -24,6 +24,10 @@ export interface PlayerState {
   shuffleEnabled: boolean
 }
 
+interface DownloadStatus {
+  status: 'idle' | 'downloading' | 'completed'
+}
+
 /**
  * ネイティブの HTMLAudioElement によるプレイヤー
  */
@@ -386,9 +390,53 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
       : undefined
   }
 
+  // 全曲fetchする処理
+  const totalDownloadCount = ref(0)
+  const completedDownloadCount = ref(0)
+  const downloadStatus = ref<DownloadStatus>({ status: 'idle' })
+  const downloadAllTracks = async (): Promise<void> => {
+    downloadStatus.value = { status: 'downloading' }
+    const urls: string[] = []
+
+    totalDownloadCount.value = 0
+    completedDownloadCount.value = 0
+
+    for (const track of tracks.value) {
+      try {
+        const manifestUrl = new URL(track.manifestPath, getOwnUrl()).toString()
+        const manifestResponse = await fetch(manifestUrl)
+        if (!manifestResponse.ok) continue
+
+        const manifestText = await manifestResponse.text()
+
+        const lines = manifestText
+          .split('\n')
+          .map((line) => line.trim())
+          .filter((line) => line !== '' && !line.startsWith('#'))
+
+        urls.push(...lines.map((line) => new URL(line, manifestUrl).toString()))
+      } catch {
+        continue
+      }
+    }
+
+    totalDownloadCount.value = urls.length
+    // 100件ずつfetch
+    for (let i = 0; i < urls.length; i += 100) {
+      const chunk = urls.slice(i, i + 100)
+      const results = await Promise.allSettled(chunk.map((url) => fetch(url)))
+      completedDownloadCount.value += results.length
+    }
+    downloadStatus.value = { status: 'completed' }
+  }
+
   return {
     playerState,
     tracks,
+    totalDownloadCount,
+    completedDownloadCount,
+    downloadStatus,
+    downloadAllTracks,
     setTracks,
     selectTrack,
     play,

@@ -153,8 +153,8 @@
             :aria-label="
               musicStore.isOfflineMode ? 'オフラインモードを無効' : 'オフラインモードを有効'
             "
+            :disabled="musicPlayerStore.downloadStatus.status === 'downloading'"
             :color="musicStore.isOfflineMode ? 'primary' : 'on-surface'"
-            variant="elevated"
             block
             @click="musicStore.toggleOfflineMode()"
           >
@@ -162,7 +162,30 @@
           </v-btn>
         </v-col>
         <v-col>
-          <v-btn :size="btnSize" block> test2 </v-btn>
+          <v-btn
+            :size="btnSize"
+            aria-label="全曲ダウンロード"
+            :disabled="
+              musicPlayerStore.downloadStatus.status === 'downloading' || musicStore.isOfflineMode
+            "
+            :color="
+              musicPlayerStore.downloadStatus.status === 'idle'
+                ? 'on-surface'
+                : musicPlayerStore.downloadStatus.status === 'downloading'
+                  ? 'primary'
+                  : 'success'
+            "
+            block
+            @click="handleDownload"
+          >
+            {{
+              musicPlayerStore.downloadStatus.status === 'idle'
+                ? '全曲ダウンロード'
+                : musicPlayerStore.downloadStatus.status === 'downloading'
+                  ? `ダウンロード中... (${musicPlayerStore.completedDownloadCount} / ${musicPlayerStore.totalDownloadCount})`
+                  : `ダウンロード完了 (${musicPlayerStore.completedDownloadCount} / ${musicPlayerStore.totalDownloadCount})`
+            }}</v-btn
+          >
         </v-col>
       </v-row>
     </div>
@@ -175,13 +198,14 @@ import { useMusicPlayerStore } from '@/presentation/stores/useMusicPlayerStore'
 import { useMusicStore } from '@/presentation/stores/useMusicStore'
 import { getOwnUrl } from '@/presentation/utils/domain'
 import type { MusicMetadataDto } from '@/use_cases/musicMetadataDto'
-import { computed, onMounted, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 const { btnSize } = useResponsiveButton()
 const musicPlayerStore = useMusicPlayerStore()
 const musicStore = useMusicStore()
 const router = useRouter()
+const snackbar = ref(false)
 
 const sliderSeconds = computed<number>({
   get: () => musicPlayerStore.playerState.positionSeconds,
@@ -189,6 +213,11 @@ const sliderSeconds = computed<number>({
     musicPlayerStore.seek(v)
   },
 })
+
+const handleDownload = async (): Promise<void> => {
+  await musicPlayerStore.downloadAllTracks()
+  snackbar.value = true
+}
 
 onMounted(() => {
   requestIdleCallback(() => {

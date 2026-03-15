@@ -1,20 +1,12 @@
 <template>
   <v-app>
-    <v-defaults-provider>
-      <v-snackbar
-        v-model="snackbar"
-        :timeout="-1"
-        location="top"
-        variant="tonal"
-        color="on-surface"
-      >
-        新しいバージョンに更新しますか?
-        <template #actions>
-          <v-btn variant="tonal" color="primary" @click="onUpdate" class="me-2">更新</v-btn>
-          <v-btn variant="tonal" color="error" @click="onClose">キャンセル</v-btn>
-        </template>
-      </v-snackbar>
-    </v-defaults-provider>
+    <v-snackbar v-model="snackbar" :timeout="-1" location="top" variant="tonal" color="on-surface">
+      新しいバージョンに更新しますか?
+      <template #actions>
+        <v-btn variant="tonal" color="primary" @click="onUpdate" class="me-2">更新</v-btn>
+        <v-btn variant="tonal" color="error" @click="onClose">キャンセル</v-btn>
+      </template>
+    </v-snackbar>
 
     <!-- vhではなくスマホのURLバーを考慮したdvhを利用する -->
     <keep-alive include="Home,Detail">
