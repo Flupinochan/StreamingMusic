@@ -164,18 +164,23 @@ const handlePostRequest = async (event: FetchEvent): Promise<Response> => {
   try {
     // 1. ネットワーク優先
     const response = await fetch(req.clone())
-    if (!response || response.status !== 200) {
+    if (!response.ok) {
       throw new Error('Network response was not ok')
     }
     // キャッシュを更新
     await cache.put(new Request(key), response.clone())
     return response
-  } catch {
+  } catch (error) {
     // 2. ネットワーク失敗時はキャッシュを返却
     const cachedRes = await cache.match(key)
     if (cachedRes) return cachedRes
     // キャッシュもなければエラー
-    return new Response('Network error and no cached data', { status: 503 })
+    return new Response(
+      'Network error and no cached data',
+      error instanceof Error
+        ? { status: 503, statusText: error.message }
+        : { status: 503, statusText: 'Service Unavailable' },
+    )
   }
 }
 

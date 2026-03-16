@@ -47,7 +47,8 @@ npm run build --workspace=frontend -- --mode prod
 
 ### Local
 
-`.env.local` ファイルを作成し、以下dev環境のdomainに接続するよう環境変数を設定して起動
+`.env.local` ファイルを作成し、以下dev環境のdomainに接続するよう環境変数を設定して起動  
+ポートは5173がCORS許可されている
 
 ```ini
 VITE_MEDIA_HOST=https://dev-music.metalmental.net
