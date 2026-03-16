@@ -97,14 +97,14 @@ export class HostingStack extends cdk.Stack {
       ],
     });
 
-    // GETは短期間(300秒)キャッシュ
+    // GETは短期間(60秒)キャッシュ
     this.apiGetCachePolicy = new cloudfront.CachePolicy(
       this,
       "ApiGetCachePolicy",
       {
         cachePolicyName: `${stackName}-api-get-cache-policy`,
         comment: "Short-lived cache for API GET and HEAD requests.",
-        defaultTtl: cdk.Duration.seconds(300),
+        defaultTtl: cdk.Duration.seconds(60),
         minTtl: cdk.Duration.seconds(0),
         maxTtl: cdk.Duration.minutes(5),
         enableAcceptEncodingBrotli: true,
