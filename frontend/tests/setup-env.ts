@@ -1,0 +1,5 @@
+import { config } from 'dotenv'
+import { resolve } from 'node:path'
+
+config({ path: resolve(process.cwd(), '.env.dev') })
+config({ path: resolve(process.cwd(), '.env.test'), override: true })
