@@ -142,3 +142,22 @@ value object classはバリデーションメソッド等があるため、infer
 ## S3パス構造
 
 後で記載
+
+## キャッシュの注意点
+
+GET APIは60秒キャッシュされるため、musicを追加/削除してもすぐに反映されないことに注意
+
+## エラー処理
+
+frontendにおけるエラー処理はUIに最も近い最上位だけにする  
+それ以外の箇所でtry-catchはしない  
+エラーをキャッチすることで処理を変える場合、つまりUI変更側だけすべき
+
+```typescript
+// 下層でエラーキャッチする場合はcauseを利用するとよいとのこと
+try {
+  return await getUser(id)
+} catch (err) {
+  throw new Error(`User load failed: ${id}`, { cause: err })
+}
+```
