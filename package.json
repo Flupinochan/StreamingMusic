@@ -1,6 +1,10 @@
 {
   "name": "streaming-music",
   "private": true,
+  "scripts": {
+    "dev": "npm run dev --workspace=frontend",
+    "preview": "npm run build --workspace=frontend -- --mode dev && npx serve frontend/dist --single --listen 5173"
+  },
   "workspaces": [
     "backend",
     "frontend"
