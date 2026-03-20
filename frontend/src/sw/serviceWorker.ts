@@ -83,6 +83,15 @@ const createOfflineCacheMissResponse = (): Response => {
   })
 }
 
+const createNavigationUnavailableResponse = (): Response => {
+  return new Response('Navigation request failed and no cached HTML was found.', {
+    status: 503,
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+    },
+  })
+}
+
 // SPAの都合上、ナビゲーションリクエストのキャッシュはルート/と/index.htmlの両方を確認
 const getCachedNavigateResponse = async (): Promise<Response | undefined> => {
   const cachedRootResponse = await caches.match('/')
@@ -142,6 +151,15 @@ const handleGetRequest = async (event: FetchEvent): Promise<Response> => {
     pathname === '/serviceWorker.js' ||
     pathname === '/manifest.webmanifest'
   ) {
+    if (isNavigationRequest) {
+      try {
+        return await retryGetOnce(() => updateSensitiveStrategy.handle({ event, request }))
+      } catch {
+        const cachedNavigateResponse = await getCachedNavigateResponse()
+        return cachedNavigateResponse ?? createNavigationUnavailableResponse()
+      }
+    }
+
     return retryGetOnce(() => updateSensitiveStrategy.handle({ event, request }))
   }
 
